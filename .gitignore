@@ -1,0 +1,6 @@
+/venv
+.vscode
+config.ini
+__pycache__
+/media
+migrations
