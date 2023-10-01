@@ -14,9 +14,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from main import views
 from rest_framework import routers
+from django.conf import settings
+from django.conf.urls.static import static
 
 router = routers.DefaultRouter()
 router.register(r'teams', views.TeamsViewSet)
@@ -26,12 +28,17 @@ router.register(r'manager_contacts', views.ManagerContactsViewSet)
 router.register(r'team_resources', views.TeamResourcesViewSet)
 router.register(r'stages', views.StagesViewSet)
 router.register(r'regions', views.RegionsViewSet)
-router.register(r'matches', views.MatchesViewSet)
+router.register(r'matches', views.MatchesViewSet, basename='matches')
 router.register(r'races', views.RaceViewSet)
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(router.urls)),
+    path('api/v1/auth/', include('djoser.urls')),
+    re_path(r'^auth/', include('djoser.urls.authtoken')),
 
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

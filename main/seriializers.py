@@ -48,6 +48,9 @@ class RegionsSerializer(serializers.ModelSerializer):
 
 
 class MatchesSerializer(serializers.ModelSerializer):
+    player_one_wins = serializers.HiddenField(default=0)
+    player_two_wins = serializers.HiddenField(default=0)
+     
     class Meta:
         model = Match
         fields = '__all__'
