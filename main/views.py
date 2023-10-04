@@ -3,7 +3,10 @@ from rest_framework import viewsets
 from .permissions import *
 from main.models import *
 from rest_framework.pagination import PageNumberPagination
-
+from django.db.models import F, ExpressionWrapper, BooleanField
+from datetime import datetime
+from rest_framework import viewsets
+from rest_framework.response import Response
 # Create your views here.
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -68,6 +71,7 @@ class MatchesViewSet(viewsets.ModelViewSet):
         player_one = self.request.query_params.get('player_one')
         player_two = self.request.query_params.get('player_two')
         is_finished = self.request.query_params.get('is_finished')
+        started = self.request.query_params.get('started')
         if season is not None:
             queryset = queryset.filter(season=season)
         if Stage is not None:
@@ -78,9 +82,39 @@ class MatchesViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(player_two=player_two)
         if is_finished is not None:
             queryset = queryset.filter(is_finished=is_finished)
+
+        if started is not None:
+            current_time = datetime.now()
+            if started == 'true':
+                queryset = queryset.filter(match_start_time__lte=current_time)
+            elif started == 'false':
+                queryset = queryset.filter(match_start_time__gt=current_time)
+
         return queryset
 
-    # filter_fields = ['season', 'stage', 'player_one', 'player_two', 'is_finished']
+
+class MatchPlayersViewSet(viewsets.ViewSet):
+    def list(self, request, match_id):
+        try:
+            match = Match.objects.get(pk=match_id)
+        except Match.DoesNotExist:
+            return Response({"error": "Match not found"}, status=404)
+        
+        players = match.get_players()
+        serializer = PlayersSerializer(players, many=True)
+        return Response(serializer.data)
+
+
+class MatchTeamsViewSet(viewsets.ViewSet):
+    def list(self, request, match_id):
+        try:
+            match = Match.objects.get(pk=match_id)
+        except Match.DoesNotExist:
+            return Response({"error": "Match not found"}, status=404)
+        
+        teams = match.get_teams()
+        serializer = TeamsSerializer(teams, many=True)
+        return Response(serializer.data)
 
 
 class RaceViewSet(viewsets.ModelViewSet):

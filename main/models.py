@@ -17,9 +17,17 @@ class Match(models.Model):
                                    related_name='player_two', 
                                    null=True, blank=True, default=None)
     player_two_wins = models.IntegerField(null=True, blank=True)
-    match_time = models.DateTimeField()
+    match_start_time = models.DateTimeField()
     is_finished = models.BooleanField()
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+
+    def get_teams(self):
+        teams = [self.player_one.team, self.player_two.team]
+        return teams
+
+    def get_players(self):
+        players = [self.player_one, self.player_two]
+        return players
 
     def __str__(self):
         return f"{self.player_one} vs {self.player_two}"
@@ -42,6 +50,7 @@ class Stage(models.Model):
 
 class Player(models.Model):
     username = models.CharField(max_length=100)
+    avatar = models.FileField(upload_to='players/logo/', null=True, default="../media/players/logo/default.svg")
     mmr = models.IntegerField()
     race = models.ForeignKey('Race', on_delete=models.PROTECT)
     wins = models.IntegerField()
@@ -66,6 +75,7 @@ class Team(models.Model):
 
 class Region(models.Model):
     name = models.CharField(max_length=100)
+    flag_url = models.URLField(default='../media/country_flags/no_flag.svg')
 
     def __str__(self):
         return self.name
