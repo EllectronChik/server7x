@@ -85,9 +85,9 @@ class MatchesViewSet(viewsets.ModelViewSet):
 
         if started is not None:
             current_time = datetime.now()
-            if started == 'true':
+            if started == 'True':
                 queryset = queryset.filter(match_start_time__lte=current_time)
-            elif started == 'false':
+            elif started == 'False':
                 queryset = queryset.filter(match_start_time__gt=current_time)
 
         return queryset
