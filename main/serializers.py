@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from djoser.serializers import UserSerializer
+from django.contrib.auth import get_user_model
 from main.models import *
 
 
@@ -60,3 +62,9 @@ class RaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Race
         fields = '__all__'
+
+
+class CustomUserSerializer(UserSerializer):
+    class Meta(UserSerializer.Meta):
+        model = get_user_model()
+        fields = ('id', 'username', 'email', 'is_staff')

@@ -1,4 +1,4 @@
-from main.seriializers import *
+from main.serializers import *
 from rest_framework import viewsets
 from .permissions import *
 from main.models import *

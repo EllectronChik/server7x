@@ -157,5 +157,10 @@ DJOSER = {
     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
     'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
     'USER_CREATE_PASSWORD_RETYPE': True,
-    'SERIALIZERS': {}
+    'SERIALIZERS': {
+        'user': 'main.serializers.CustomUserSerializer',
+    },
+    'PERMISSIONS': {
+        'user_list': ['rest_framework.permissions.IsAdminUser'],
+    }
 }
