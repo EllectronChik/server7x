@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from djoser.serializers import UserSerializer
+from djoser.serializers import UserSerializer, TokenSerializer
 from django.contrib.auth import get_user_model
 from main.models import *
 
@@ -68,3 +68,9 @@ class CustomUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         model = get_user_model()
         fields = ('id', 'username', 'email', 'is_staff')
+
+
+class CustomTokenSerializer(TokenSerializer):
+    user_id = serializers.IntegerField(source='user.id')
+    class Meta(TokenSerializer.Meta):
+        fields = ('user_id', 'auth_token')
