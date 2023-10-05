@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'server7x.urls'
@@ -157,10 +158,16 @@ DJOSER = {
     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
     'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
     'USER_CREATE_PASSWORD_RETYPE': True,
+    'LOGIN_AFTER_REGISTRATION': True,
     'SERIALIZERS': {
         'user': 'main.serializers.CustomUserSerializer',
+        'token': 'main.serializers.CustomTokenSerializer',
     },
     'PERMISSIONS': {
         'user_list': ['rest_framework.permissions.IsAdminUser'],
     }
 }
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]
