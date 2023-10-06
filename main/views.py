@@ -7,6 +7,7 @@ from django.db.models import F, ExpressionWrapper, BooleanField
 from datetime import datetime
 from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 # Create your views here.
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -18,34 +19,41 @@ class CustomPageNumberPagination(PageNumberPagination):
 class TeamsViewSet(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = TeamsSerializer
-    permission_classes = (isAdminOrReadOnly, isOwnerOrReadOnly)
+    permission_classes = (isAdminOrOwnerOrReadOnly,)
     pagination_class = CustomPageNumberPagination
 
 
 class PlayersViewSet(viewsets.ModelViewSet):
     queryset = Player.objects.all()
     serializer_class = PlayersSerializer
-    permission_classes = (isAdminOrReadOnly, isOwnerOrReadOnly)
+    permission_classes = (isAdminOrOwnerOrReadOnly,)
     pagination_class = CustomPageNumberPagination
 
 
 class ManagersViewSet(viewsets.ModelViewSet):
     queryset = Manager.objects.all()
     serializer_class = ManagersSerializer
-    permission_classes = (isAdminOrReadOnly, )
+    permission_classes = (isAdminOrOwnerOrReadOnly, )
     pagination_class = CustomPageNumberPagination
+
+    def perform_create(self, serializer):
+
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+
+        serializer.save(user=self.request.user)
     
 
 class ManagerContactsViewSet(viewsets.ModelViewSet):
     queryset = ManagerContact.objects.all()
     serializer_class = ManagerContactsSerializer
-    permission_classes = (isAdminOrReadOnly, isOwnerOrReadOnly)
+    permission_classes = (isAdminOrOwnerOrReadOnly,)
     
 
 class TeamResourcesViewSet(viewsets.ModelViewSet):
     queryset = TeamResource.objects.all()
     serializer_class = TeamResourcesSerializer
-    permission_classes = (isAdminOrReadOnly, isOwnerOrReadOnly)
+    permission_classes = (isAdminOrOwnerOrReadOnly,)
     
 
 class StagesViewSet(viewsets.ModelViewSet):
@@ -62,7 +70,7 @@ class RegionsViewSet(viewsets.ModelViewSet):
 
 class MatchesViewSet(viewsets.ModelViewSet):
     serializer_class = MatchesSerializer
-    permission_classes = (isAdminOrReadOnly, isOwnerOrReadOnly)
+    permission_classes = (isAdminOrOwnerOrReadOnly,)
 
     def get_queryset(self):
         queryset = Match.objects.all()
@@ -121,3 +129,15 @@ class RaceViewSet(viewsets.ModelViewSet):
     queryset = Race.objects.all()
     serializer_class = RaceSerializer
     permission_classes = (isAdminOrReadOnly, )
+
+
+class AskForStaffViewSet(viewsets.ModelViewSet):
+    queryset = AskForStaff.objects.all()
+    serializer_class = AskForStaffSerializer
+    permission_classes = (isAdminOrOwnerOrReadOnly,)
+    def perform_create(self, serializer):
+
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+
+        serializer.save(user=self.request.user)
