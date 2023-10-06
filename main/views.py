@@ -5,9 +5,11 @@ from main.models import *
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import F, ExpressionWrapper, BooleanField
 from datetime import datetime
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.views import APIView
+import requests
 # Create your views here.
 
 class CustomPageNumberPagination(PageNumberPagination):
@@ -141,3 +143,31 @@ class AskForStaffViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can only create objects with your own id")
 
         serializer.save(user=self.request.user)
+
+
+class GetClanMembers(APIView):
+    def get(self, request, clan_tag):
+        api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
+        
+        try:
+            response = requests.get(api_url)
+            if response.status_code == 200:
+                data = response.json()
+                character_data = []
+                for item in data:
+                    character = item['members']['character']
+                    name = character['name'].split('#')[0]
+                    ch_id = character['id']
+                    league_max = item['leagueMax']
+
+                    character_info = {
+                        "name": name,
+                        "id": ch_id,
+                        "league": league_max,
+                    }
+                    character_data.append(character_info)
+                return Response(character_data, status=status.HTTP_200_OK)
+            else:
+                raise Exception(f"Error {response.status_code}")
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
