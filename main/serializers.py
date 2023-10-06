@@ -74,3 +74,10 @@ class CustomTokenSerializer(TokenSerializer):
     user_id = serializers.IntegerField(source='user.id')
     class Meta(TokenSerializer.Meta):
         fields = ('user_id', 'auth_token')
+
+
+class AskForStaffSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    class Meta:
+        model = AskForStaff
+        fields = '__all__'
