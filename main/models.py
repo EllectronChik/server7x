@@ -92,11 +92,11 @@ class TeamResource(models.Model):
     
 
 class Manager(models.Model):
-    user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+    user = models.OneToOneField('auth.User', on_delete=models.PROTECT)
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
 
     def __str__(self):
-        return self.user
+        return self.user.username
 
 
 class ManagerContact(models.Model):
@@ -113,3 +113,9 @@ class Race(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class AskForStaff(models.Model):
+    user = models.OneToOneField('auth.User', on_delete=models.PROTECT, )
+    def __str__(self):
+        return self.user.username
