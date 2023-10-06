@@ -38,6 +38,7 @@ urlpatterns = [
     path('api/v1/', include(router.urls)),
     path('api/v1/matches/<int:match_id>/players/', views.MatchPlayersViewSet.as_view({'get': 'list'})),
     path('api/v1/matches/<int:match_id>/teams/', views.MatchTeamsViewSet.as_view({'get': 'list'})),
+    path('api/v1/get_players/<str:clan_tag>/', views.GetClanMembers.as_view()),
     path('api/v1/auth/', include('djoser.urls')),
     re_path(r'^auth/', include('djoser.urls.authtoken')),
 ]
