@@ -144,6 +144,12 @@ class RaceViewSet(viewsets.ModelViewSet):
     permission_classes = (isAdminOrReadOnly, )
 
 
+class LeagueViewSet(viewsets.ModelViewSet):
+    queryset = League.objects.all()
+    serializer_class = LeagueSerializer
+    permission_classes = (isAdminOrReadOnly, )
+
+
 class AskForStaffViewSet(viewsets.ModelViewSet):
     queryset = AskForStaff.objects.all()
     serializer_class = AskForStaffSerializer
@@ -164,17 +170,37 @@ class GetClanMembers(APIView):
             response = requests.get(api_url)
             if response.status_code == 200:
                 data = response.json()
+                if len(data) == 0:
+                    return Response({"error": "Clan not found"}, status=status.HTTP_404_NOT_FOUND)
                 character_data = []
                 for item in data:
                     character = item['members']['character']
                     name = character['name'].split('#')[0]
                     ch_id = character['id']
                     league_max = item['leagueMax']
+                    mmr = item['currentStats']['rating']
+                    if (not mmr):
+                        mmr = item['ratingMax']
+                    if ('protossGamesPlayed' in item['members']):
+                        race = 3
+                    elif ('zergGamesPlayed' in item['members']):
+                        race = 1
+                    elif ('terranGamesPlayed' in item['members']):
+                        race = 2
+                    elif ('randomGamesPlayed' in item['members']):
+                        race = 4
+                    else:
+                        race = 'unknown'
+
+
+
 
                     character_info = {
                         "name": name,
                         "id": ch_id,
                         "league": league_max,
+                        "race": race,
+                        "mmr": mmr
                     }
                     character_data.append(character_info)
                 return Response(character_data, status=status.HTTP_200_OK)
