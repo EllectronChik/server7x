@@ -64,6 +64,12 @@ class RaceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class LeagueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = League
+        fields = '__all__'
+
+
 class CustomUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         model = get_user_model()
