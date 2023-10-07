@@ -31,6 +31,7 @@ router.register(r'stages', views.StagesViewSet)
 router.register(r'regions', views.RegionsViewSet)
 router.register(r'matches', views.MatchesViewSet, basename='matches')
 router.register(r'races', views.RaceViewSet)
+router.register(r'leagues', views.LeagueViewSet)
 
 
 urlpatterns = [
