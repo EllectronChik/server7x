@@ -52,6 +52,7 @@ class Player(models.Model):
     username = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='players/logo/', null=True, default="../media/players/logo/default.svg")
     mmr = models.IntegerField()
+    # league = models.ForeignKey('League', on_delete=models.PROTECT)
     race = models.ForeignKey('Race', on_delete=models.PROTECT)
     wins = models.IntegerField()
     total_games = models.IntegerField()
@@ -109,6 +110,13 @@ class ManagerContact(models.Model):
     
 
 class Race(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class League(models.Model):
     name = models.CharField(max_length=100)
 
     def __str__(self):
