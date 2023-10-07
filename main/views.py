@@ -8,6 +8,8 @@ from datetime import datetime
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 import requests
 # Create your views here.
@@ -44,7 +46,16 @@ class ManagersViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can only create objects with your own id")
 
         serializer.save(user=self.request.user)
-    
+
+    def get_queryset(self):
+        queryset = Manager.objects.all()
+        user = self.request.query_params.get('user')
+
+        if user is not None:
+            queryset = queryset.filter(user=user)
+        return queryset
+
+
 
 class ManagerContactsViewSet(viewsets.ModelViewSet):
     queryset = ManagerContact.objects.all()
@@ -171,3 +182,19 @@ class GetClanMembers(APIView):
                 raise Exception(f"Error {response.status_code}")
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def is_authenticated(request):
+    return Response(status=status.HTTP_200_OK, data={"is_authenticated": request.user.is_authenticated})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def is_manager_or_staff(request):
+    user = request.user
+    is_manager = Manager.objects.filter(user=user).exists()
+    return Response(status=status.HTTP_200_OK, data={
+        "is_staff": request.user.is_staff,
+        "is_manager": is_manager})
