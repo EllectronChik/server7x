@@ -63,7 +63,7 @@ class Player(models.Model):
     
 
 class Team(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     tag = models.CharField(max_length=10)
     logo = models.FileField(upload_to='teams/logo/', null=True)
     region = models.ForeignKey('Region', on_delete=models.PROTECT)
