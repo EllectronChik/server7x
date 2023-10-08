@@ -177,7 +177,7 @@ class GetClanMembers(APIView):
                     character = item['members']['character']
                     name = character['name'].split('#')[0]
                     ch_id = character['id']
-                    league_max = item['leagueMax']
+                    league_max = item['leagueMax'] + 1
                     mmr = item['currentStats']['rating']
                     if (not mmr):
                         mmr = item['ratingMax']
@@ -202,7 +202,9 @@ class GetClanMembers(APIView):
                         "race": race,
                         "mmr": mmr
                     }
+
                     character_data.append(character_info)
+                    character_data = sorted(character_data, key=lambda k: k['mmr'], reverse=True)
                 return Response(character_data, status=status.HTTP_200_OK)
             else:
                 raise Exception(f"Error {response.status_code}")
