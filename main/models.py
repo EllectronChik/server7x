@@ -76,7 +76,7 @@ class Team(models.Model):
 
 class Region(models.Model):
     name = models.CharField(max_length=100)
-    flag_url = models.URLField(default='../media/country_flags/no_flag.svg')
+    flag_url = models.FileField(default='../media/country_flags/no_flag.svg', upload_to='country_flags/')
 
     def __str__(self):
         return self.name
