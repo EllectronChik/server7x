@@ -76,9 +76,14 @@ class StagesViewSet(viewsets.ModelViewSet):
     
 
 class RegionsViewSet(viewsets.ModelViewSet):
-    queryset = Region.objects.all()
     serializer_class = RegionsSerializer
     permission_classes = (isAdminOrReadOnly, )
+
+    def get_queryset(self):
+        name = self.request.query_params.get('name')
+        if name is not None:
+            return Region.objects.filter(name=name)
+        return Region.objects.all().order_by('name')
     
 
 class MatchesViewSet(viewsets.ModelViewSet):
