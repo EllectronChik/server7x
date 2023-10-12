@@ -181,7 +181,21 @@ class GetClanMembers(APIView):
                 for item in data:
                     character = item['members']['character']
                     name = character['name'].split('#')[0]
-                    ch_id = character['id']
+                    ch_id = character['battlenetId']
+                    region = character['region']
+                    match region:
+                        case 'US':
+                            region = 1
+                        case 'EU':
+                            region = 2
+                        case 'KR':
+                            region = 3
+                        case 'TW':
+                            region = 3
+                        case 'CN':
+                            region = 5
+
+                    realm = character['realm']
                     league_max = item['leagueMax'] + 1
                     mmr = item['currentStats']['rating']
                     if (not mmr):
@@ -202,6 +216,8 @@ class GetClanMembers(APIView):
 
                     character_info = {
                         "name": name,
+                        "region": region,
+                        "realm": realm,
                         "id": ch_id,
                         "league": league_max,
                         "race": race,
@@ -211,6 +227,22 @@ class GetClanMembers(APIView):
                     character_data.append(character_info)
                     character_data = sorted(character_data, key=lambda k: k['mmr'], reverse=True)
                 return Response(character_data, status=status.HTTP_200_OK)
+            else:
+                raise Exception(f"Error {response.status_code}")
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class GetMemberLogo(APIView):
+    def get(self, request, region, realm, character_id):
+        api_url = f'https://eu.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token=EURE2zEgUgI1u1yvSNZDYIeXSgLZbwggK2'
+
+        try:
+            response = requests.get(api_url)
+            if response.status_code == 200:
+                data = response.json()
+                avatar = data['avatarUrl']
+                return Response(avatar, status=status.HTTP_200_OK)
             else:
                 raise Exception(f"Error {response.status_code}")
         except Exception as e:
