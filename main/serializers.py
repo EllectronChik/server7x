@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from main.models import *
 
 
-
 class TeamsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Team
@@ -12,8 +11,6 @@ class TeamsSerializer(serializers.ModelSerializer):
 
 
 class PlayersSerializer(serializers.ModelSerializer):
-    Wins = serializers.HiddenField(default=0)
-    TotalGames = serializers.HiddenField(default=0)
     class Meta:
         model = Player
         fields = '__all__'
@@ -49,10 +46,7 @@ class RegionsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class MatchesSerializer(serializers.ModelSerializer):
-    player_one_wins = serializers.HiddenField(default=0)
-    player_two_wins = serializers.HiddenField(default=0)
-     
+class MatchesSerializer(serializers.ModelSerializer):     
     class Meta:
         model = Match
         fields = '__all__'
