@@ -12,7 +12,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 import requests
+import configparser
 # Create your views here.
+
+config = configparser.ConfigParser()
+config.read('.ini')
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
@@ -26,12 +30,32 @@ class TeamsViewSet(viewsets.ModelViewSet):
     permission_classes = (isAdminOrOwnerOrReadOnly,)
     pagination_class = CustomPageNumberPagination
 
+    def perform_create(self, serializer):
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
+
 
 class PlayersViewSet(viewsets.ModelViewSet):
-    queryset = Player.objects.all()
     serializer_class = PlayersSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
     pagination_class = CustomPageNumberPagination
+
+    def get_queryset(self):
+        queryset = Player.objects.all()
+        team = self.request.query_params.get('team')
+
+        if team is not None:
+            queryset = queryset.filter(team=team)
+        return queryset
+
+    def perform_create(self, serializer):
+        
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
 
 
 class ManagersViewSet(viewsets.ModelViewSet):
@@ -44,6 +68,8 @@ class ManagersViewSet(viewsets.ModelViewSet):
 
         if serializer.validated_data['user'] != self.request.user:
             raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
 
         serializer.save(user=self.request.user)
 
@@ -61,12 +87,25 @@ class ManagerContactsViewSet(viewsets.ModelViewSet):
     queryset = ManagerContact.objects.all()
     serializer_class = ManagerContactsSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
+
+    def perform_create(self, serializer):
+        
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
     
 
 class TeamResourcesViewSet(viewsets.ModelViewSet):
     queryset = TeamResource.objects.all()
     serializer_class = TeamResourcesSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
+
+    def perform_create(self, serializer):
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
     
 
 class StagesViewSet(viewsets.ModelViewSet):
@@ -88,7 +127,7 @@ class RegionsViewSet(viewsets.ModelViewSet):
 
 class MatchesViewSet(viewsets.ModelViewSet):
     serializer_class = MatchesSerializer
-    permission_classes = (isAdminOrOwnerOrReadOnly,)
+    permission_classes = (canEditMatchField,)
 
     def get_queryset(self):
         queryset = Match.objects.all()
@@ -117,6 +156,13 @@ class MatchesViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(match_start_time__gt=current_time)
 
         return queryset
+
+    def perform_create(self, serializer):
+        
+        if serializer.validated_data['user'] != self.request.user:
+            raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
 
 
 class MatchPlayersViewSet(viewsets.ViewSet):
@@ -163,6 +209,8 @@ class AskForStaffViewSet(viewsets.ModelViewSet):
 
         if serializer.validated_data['user'] != self.request.user:
             raise PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
 
         serializer.save(user=self.request.user)
 
@@ -235,18 +283,11 @@ class GetClanMembers(APIView):
 
 class GetMemberLogo(APIView):
     def get(self, request, region, realm, character_id):
-        api_url = f'https://eu.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token=EURE2zEgUgI1u1yvSNZDYIeXSgLZbwggK2'
-
-        try:
-            response = requests.get(api_url)
-            if response.status_code == 200:
-                data = response.json()
-                avatar = data['avatarUrl']
-                return Response(avatar, status=status.HTTP_200_OK)
-            else:
-                raise Exception(f"Error {response.status_code}")
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        avatar = get_avatar(region, realm, character_id)
+        if avatar is not None:
+            return Response(avatar, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Character not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(['GET'])
@@ -263,3 +304,47 @@ def is_manager_or_staff(request):
     return Response(status=status.HTTP_200_OK, data={
         "is_staff": request.user.is_staff,
         "is_manager": is_manager})
+
+
+def get_new_access_token():
+    token_url = 'https://oauth.battle.net/token'
+
+    client_id = config['BLIZZARD']['BLIZZARD_API_ID']
+    client_secret = config['BLIZZARD']['BLIZZARD_API_SECRET']
+
+    data = {
+        'grant_type': 'client_credentials',
+    }
+
+    response = requests.post(token_url, data=data, auth=(client_id, client_secret))
+
+    if response.status_code == 200:
+        return response.json()['access_token']
+    else:
+        return (response.status_code)
+
+    
+def get_blizzard_data(region, realm, character_id):
+    token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
+    api_url = f'https://eu.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
+    response = requests.get(api_url)
+    return response
+
+def get_avatar(region, realm, character_id):
+    response = get_blizzard_data(region, realm, character_id)
+
+    if response.status_code == 200:
+        data = response.json()
+        avatar = data['avatarUrl']
+        return avatar
+    elif response.status_code == 401:
+        new_token = get_new_access_token()
+        config.set('BLIZZARD', 'BLIZZARD_API_TOKEN', new_token)
+        with open('.ini', 'w') as f:
+            print('rewriting config file')
+            config.write(f)
+        return get_avatar(region, realm, character_id)
+    elif response.status_code == 404:
+        return None
+    else:
+        raise Exception(f"{response.status_code}")
