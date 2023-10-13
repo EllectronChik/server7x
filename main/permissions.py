@@ -36,3 +36,14 @@ class isAdminOrOwnerOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         return obj.user == request.user or bool(request.user and request.user.is_staff)
+
+
+class canEditMatchField(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        if request.user and obj.player_one and obj.player_two:
+            if (request.user == obj.player_one.user) or (request.user == obj.player_two.user):
+                return True
+        return bool(request.user and request.user.is_staff)
