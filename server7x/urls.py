@@ -23,7 +23,7 @@ from django.conf.urls.static import static
 router = routers.DefaultRouter()
 router.register(r'ask_for_staff', views.AskForStaffViewSet, basename='ask_for_staff')
 router.register(r'teams', views.TeamsViewSet)
-router.register(r'players', views.PlayersViewSet)
+router.register(r'players', views.PlayersViewSet, basename='players')
 router.register(r'managers', views.ManagersViewSet)
 router.register(r'manager_contacts', views.ManagerContactsViewSet)
 router.register(r'team_resources', views.TeamResourcesViewSet)
