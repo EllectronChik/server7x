@@ -50,7 +50,7 @@ class Stage(models.Model):
 
 class Player(models.Model):
     username = models.CharField(max_length=100)
-    avatar = models.FileField(upload_to='players/logo/', null=True, default="../media/players/logo/default.svg")
+    avatar = models.URLField(default="http://localhost:8000/media/players/logo/default.svg")
     mmr = models.IntegerField()
     # league = models.ForeignKey('League', on_delete=models.PROTECT)
     race = models.ForeignKey('Race', on_delete=models.PROTECT)
@@ -101,7 +101,7 @@ class Manager(models.Model):
 
 
 class ManagerContact(models.Model):
-    manager = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+    user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
     url = models.URLField()
     
 
