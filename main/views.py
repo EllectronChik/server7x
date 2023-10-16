@@ -25,14 +25,21 @@ class CustomPageNumberPagination(PageNumberPagination):
 
 
 class TeamsViewSet(viewsets.ModelViewSet):
-    queryset = Team.objects.all()
     serializer_class = TeamsSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
     pagination_class = CustomPageNumberPagination
 
+    def get_queryset(self):
+        queryset = Team.objects.all()
+        tag = self.request.query_params.get('tag')
+        if tag is not None:
+            queryset = queryset.filter(tag=tag)
+        return queryset
+
+
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise PermissionDenied("You can only create objects with your own id")  
         else:
             serializer.save(user=self.request.user)
 
@@ -62,7 +69,6 @@ class ManagersViewSet(viewsets.ModelViewSet):
     queryset = Manager.objects.all()
     serializer_class = ManagersSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly, )
-    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
 
@@ -263,7 +269,7 @@ class GetClanMembers(APIView):
 
 
                     character_info = {
-                        "name": name,
+                        "username": name,
                         "region": region,
                         "realm": realm,
                         "id": ch_id,
