@@ -112,6 +112,14 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
+
+    def get_queryset(self):
+        queryset = TeamResource.objects.all()
+        team = self.request.query_params.get('team')
+
+        if team is not None:
+            queryset = queryset.filter(team=team)
+        return queryset
     
 
 class StagesViewSet(viewsets.ModelViewSet):
