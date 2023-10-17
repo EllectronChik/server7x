@@ -84,12 +84,11 @@ class Region(models.Model):
 
 class TeamResource(models.Model):
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
-    name = models.CharField(max_length=100)
     url = models.URLField()
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
 
     def __str__(self):
-        return self.name
+        return self.url
     
 
 class Manager(models.Model):
