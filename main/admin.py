@@ -13,3 +13,8 @@ admin.site.register(Match)
 admin.site.register(Race)
 admin.site.register(AskForStaff)
 admin.site.register(League)
+
+class LeagueFrameAdmin(admin.ModelAdmin):
+    list_display = ('id', 'league', 'frame_max', 'region')
+
+admin.site.register(LeagueFrame, LeagueFrameAdmin)

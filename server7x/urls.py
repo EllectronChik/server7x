@@ -1,18 +1,3 @@
-"""server7x URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include, re_path
 from main import views
@@ -41,6 +26,7 @@ urlpatterns = [
     path('api/v1/matches/<int:match_id>/teams/', views.MatchTeamsViewSet.as_view({'get': 'list'})),
     path('api/v1/get_players/<str:clan_tag>/', views.GetClanMembers.as_view()),
     path('api/v1/get_player_logo/<str:region>/<str:realm>/<str:character_id>/', views.GetMemberLogo.as_view()),
+    path('api/v1/manager/team/', views.get_team_and_related_data, name='get_team_and_related_data'),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
     path('api/v1/auth/', include('djoser.urls')),

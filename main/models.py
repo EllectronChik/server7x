@@ -126,3 +126,12 @@ class AskForStaff(models.Model):
     user = models.OneToOneField('auth.User', on_delete=models.PROTECT, )
     def __str__(self):
         return self.user.username
+
+
+class LeagueFrame(models.Model):
+    league = models.ForeignKey('League', on_delete=models.PROTECT)
+    frame_max = models.IntegerField()
+    region = models.CharField(max_length=2)
+
+    def __str__(self):
+        return f"{self.league} max frame: {self.frame_max}"

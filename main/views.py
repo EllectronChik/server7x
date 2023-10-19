@@ -10,9 +10,12 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
+from .utils import get_blizzard_data, get_new_access_token
 import requests
 import configparser
+from django.http import JsonResponse
 # Create your views here.
 
 config = configparser.ConfigParser()
@@ -320,29 +323,7 @@ def is_manager_or_staff(request):
         "is_manager": is_manager})
 
 
-def get_new_access_token():
-    token_url = 'https://oauth.battle.net/token'
 
-    client_id = config['BLIZZARD']['BLIZZARD_API_ID']
-    client_secret = config['BLIZZARD']['BLIZZARD_API_SECRET']
-
-    data = {
-        'grant_type': 'client_credentials',
-    }
-
-    response = requests.post(token_url, data=data, auth=(client_id, client_secret))
-
-    if response.status_code == 200:
-        return response.json()['access_token']
-    else:
-        return (response.status_code)
-
-    
-def get_blizzard_data(region, realm, character_id):
-    token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
-    api_url = f'https://eu.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
-    response = requests.get(api_url)
-    return response
 
 def get_avatar(region, realm, character_id):
     response = get_blizzard_data(region, realm, character_id)
@@ -362,3 +343,33 @@ def get_avatar(region, realm, character_id):
         return None
     else:
         raise Exception(f"{response.status_code}")
+
+
+@api_view(['GET'])
+def get_team_and_related_data(request):
+    user_id = request.query_params.get('user', None)
+    print(user_id)
+    if user_id is None:
+        print("User ID is required in query parameter")
+        return Response({"error": "User ID is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try: 
+        manager = Manager.objects.get(user=user_id)
+    except:
+        return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    team = manager.team
+    players = Player.objects.filter(team=team)
+    team_resources = TeamResource.objects.filter(team=team)
+
+    team_name = team.name
+    team_logo_url = team.logo.url
+
+    team_data = {
+        "team_name": team_name,
+        "team_logo_url": team_logo_url,
+        "players": list(players.values()),
+        "team_resources": list(team_resources.values())
+    }
+
+    return Response(team_data)
