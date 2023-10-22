@@ -1,21 +1,22 @@
-from main.serializers import *
-from rest_framework import viewsets
-from .permissions import *
-from main.models import *
-from rest_framework.pagination import PageNumberPagination
-from django.db.models import F, ExpressionWrapper, BooleanField
+import configparser
 from datetime import datetime
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+
+import requests
+
+from django.db.models import ExpressionWrapper, F, BooleanField
+from django.http import JsonResponse
+from main.models import *
+from main.serializers import *
+from rest_framework import status, viewsets, exceptions
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import JSONRenderer
+from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from .permissions import *
 from .utils import get_blizzard_data, get_new_access_token
-import requests
-import configparser
-from django.http import JsonResponse
 # Create your views here.
 
 config = configparser.ConfigParser()
@@ -42,7 +43,7 @@ class TeamsViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")  
+            raise exceptions.PermissionDenied("You can only create objects with your own id")  
         else:
             serializer.save(user=self.request.user)
 
@@ -63,7 +64,7 @@ class PlayersViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -76,7 +77,7 @@ class ManagersViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
 
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -100,7 +101,7 @@ class ManagerContactsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
     
@@ -112,7 +113,7 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -177,7 +178,7 @@ class MatchesViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -225,7 +226,7 @@ class AskForStaffViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
 
         if serializer.validated_data['user'] != self.request.user:
-            raise PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -235,6 +236,29 @@ class AskForStaffViewSet(viewsets.ModelViewSet):
 class GetClanMembers(APIView):
     def get(self, request, clan_tag):
         api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
+
+        league_frames = {
+            'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
+            'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
+            'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
+            'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
+            'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
+            'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
+            'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
+            'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
+            'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
+            'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
+            'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
+            'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
+            'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
+            'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
+            'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
+            'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
+            'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
+            'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
+
+
+        }
         
         try:
             response = requests.get(api_url)
@@ -242,29 +266,40 @@ class GetClanMembers(APIView):
                 data = response.json()
                 if len(data) == 0:
                     return Response({"error": "Clan not found"}, status=status.HTTP_404_NOT_FOUND)
-                character_data = []
+                character_data = {
+                    'EU': [],
+                    'US': [],
+                    'KR': []
+                }
                 for item in data:
                     character = item['members']['character']
                     name = character['name'].split('#')[0]
                     ch_id = character['battlenetId']
                     region = character['region']
-                    match region:
-                        case 'US':
-                            region = 1
-                        case 'EU':
-                            region = 2
-                        case 'KR':
-                            region = 3
-                        case 'TW':
-                            region = 3
-                        case 'CN':
-                            region = 5
-
-                    realm = character['realm']
-                    league_max = item['leagueMax'] + 1
                     mmr = item['currentStats']['rating']
                     if (not mmr):
                         mmr = item['ratingMax']
+                    if region in ['TW', 'CN']:
+                        region = 'KR'
+
+                    if (mmr > league_frames[f'{region}_6']):
+                        league_max = item['leagueMax'] + 1
+                    elif (mmr > league_frames[f'{region}_5']):
+                        league_max = 6
+                    elif (mmr > league_frames[f'{region}_4']):
+                        league_max = 5
+                    elif (mmr > league_frames[f'{region}_3']):
+                        league_max = 4
+                    elif (mmr > league_frames[f'{region}_2']):
+                        league_max = 3
+                    elif (mmr > league_frames[f'{region}_1']):
+                        league_max = 2
+                    else:
+                        league_max = 1
+
+                    realm = character['realm']
+
+
                     if ('protossGamesPlayed' in item['members']):
                         race = 3
                     elif ('zergGamesPlayed' in item['members']):
@@ -281,7 +316,6 @@ class GetClanMembers(APIView):
 
                     character_info = {
                         "username": name,
-                        "region": region,
                         "realm": realm,
                         "id": ch_id,
                         "league": league_max,
@@ -289,8 +323,16 @@ class GetClanMembers(APIView):
                         "mmr": mmr
                     }
 
-                    character_data.append(character_info)
-                    character_data = sorted(character_data, key=lambda k: k['mmr'], reverse=True)
+                    match region:
+                        case 'US':
+                            character_info['region'] = 1
+                        case 'EU':
+                            character_info['region'] = 2
+                        case 'KR':
+                            character_info['region'] = 3
+
+                    character_data[region].append(character_info)
+                character_data[region] = sorted(character_data[region], key=lambda k: k['mmr'], reverse=True)
                 return Response(character_data, status=status.HTTP_200_OK)
             else:
                 raise Exception(f"Error {response.status_code}")
