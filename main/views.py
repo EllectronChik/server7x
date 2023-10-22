@@ -266,11 +266,7 @@ class GetClanMembers(APIView):
                 data = response.json()
                 if len(data) == 0:
                     return Response({"error": "Clan not found"}, status=status.HTTP_404_NOT_FOUND)
-                character_data = {
-                    'EU': [],
-                    'US': [],
-                    'KR': []
-                }
+                character_data = []
                 for item in data:
                     character = item['members']['character']
                     name = character['name'].split('#')[0]
@@ -297,6 +293,16 @@ class GetClanMembers(APIView):
                     else:
                         league_max = 1
 
+
+                    match region:
+                        case 'US':
+                            region = 1
+                        case 'EU':
+                            region = 2
+                        case 'KR':
+                            region = 3
+
+
                     realm = character['realm']
 
 
@@ -316,6 +322,7 @@ class GetClanMembers(APIView):
 
                     character_info = {
                         "username": name,
+                        "region": region,
                         "realm": realm,
                         "id": ch_id,
                         "league": league_max,
@@ -323,16 +330,14 @@ class GetClanMembers(APIView):
                         "mmr": mmr
                     }
 
-                    match region:
-                        case 'US':
-                            character_info['region'] = 1
-                        case 'EU':
-                            character_info['region'] = 2
-                        case 'KR':
-                            character_info['region'] = 3
+                    character_data.append(character_info)
+                region_priority = {
+                    2: 0,
+                    1: 1,
+                    3: 2
+                }
+                character_data = sorted(character_data, key=lambda k: (region_priority.get(k['region'], float('inf')), -k['mmr']))
 
-                    character_data[region].append(character_info)
-                character_data[region] = sorted(character_data[region], key=lambda k: k['mmr'], reverse=True)
                 return Response(character_data, status=status.HTTP_200_OK)
             else:
                 raise Exception(f"Error {response.status_code}")
