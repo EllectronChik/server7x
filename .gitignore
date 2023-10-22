@@ -6,6 +6,5 @@ __pycache__
 migrations
 .env
 .ini
-.log
-task.log
+*.log
 celerybeat-schedule
