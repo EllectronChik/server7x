@@ -6,3 +6,6 @@ __pycache__
 migrations
 .env
 .ini
+.log
+task.log
+celerybeat-schedule
