@@ -52,12 +52,13 @@ class Player(models.Model):
     username = models.CharField(max_length=100)
     avatar = models.URLField(default="http://localhost:8000/media/players/logo/default.svg")
     mmr = models.IntegerField()
-    # league = models.ForeignKey('League', on_delete=models.PROTECT)
+    league = models.ForeignKey('League', on_delete=models.PROTECT)
     race = models.ForeignKey('Race', on_delete=models.PROTECT)
     wins = models.IntegerField()
     total_games = models.IntegerField()
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+    region = models.IntegerField(choices=((1, 'US'), (2, 'EU'), (3, 'KR')), default=2)
 
     def __str__(self):
         return self.username
