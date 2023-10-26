@@ -23,7 +23,7 @@ async def get_blizzard_league_data(region, league):
         config.set('BLIZZARD', 'BLIZZARD_API_TOKEN', new_token)
         with open('.ini', 'w') as f:
             config.write(f)
-        return get_blizzard_league_data(region, league)
+        return await get_blizzard_league_data(region, league)
 
 
 async def get_season():
