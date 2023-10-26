@@ -62,11 +62,25 @@ class PlayersViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
+\
+        if serializer.validated_data['league'] is None:
+            league_frames = leagueFrames()
+            if serializer.validated_data['region'] == 1:
+                region = 'US'
+            elif serializer.validated_data['region'] == 2:
+                region = 'EU'
+            elif serializer.validated_data['region'] == 3:
+                region = 'KR'
+
+            league = get_league(serializer.validated_data['mmr'], league_frames, region)
+            serializer.validated_data['league'] = league
         
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
+
+
 
 
 class ManagersViewSet(viewsets.ModelViewSet):
@@ -237,28 +251,7 @@ class GetClanMembers(APIView):
     def get(self, request, clan_tag):
         api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
 
-        league_frames = {
-            'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
-            'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
-            'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
-            'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
-            'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
-            'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
-            'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
-            'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
-            'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
-            'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
-            'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
-            'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
-            'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
-            'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
-            'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
-            'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
-            'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
-            'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
-
-
-        }
+        league_frames = leagueFrames()
         
         try:
             response = requests.get(api_url)
@@ -278,21 +271,9 @@ class GetClanMembers(APIView):
                     if region in ['TW', 'CN']:
                         region = 'KR'
 
-                    if (mmr > league_frames[f'{region}_6']):
+                    league_max = get_league(mmr, league_frames, region)
+                    if league_max == 7:
                         league_max = item['leagueMax'] + 1
-                    elif (mmr > league_frames[f'{region}_5']):
-                        league_max = 6
-                    elif (mmr > league_frames[f'{region}_4']):
-                        league_max = 5
-                    elif (mmr > league_frames[f'{region}_3']):
-                        league_max = 4
-                    elif (mmr > league_frames[f'{region}_2']):
-                        league_max = 3
-                    elif (mmr > league_frames[f'{region}_1']):
-                        league_max = 2
-                    else:
-                        league_max = 1
-
 
                     match region:
                         case 'US':
@@ -420,3 +401,45 @@ def get_team_and_related_data(request):
     }
 
     return Response(team_data)
+
+
+def leagueFrames():
+    league_frames = {
+            'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
+            'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
+            'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
+            'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
+            'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
+            'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
+            'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
+            'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
+            'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
+            'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
+            'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
+            'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
+            'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
+            'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
+            'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
+            'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
+            'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
+            'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
+        }
+    return league_frames
+
+
+def get_league(mmr, league_frames, region):
+    if (mmr > league_frames[f'{region}_6']):
+        league_max = 7
+    elif (mmr > league_frames[f'{region}_5']):
+        league_max = 6
+    elif (mmr > league_frames[f'{region}_4']):
+        league_max = 5
+    elif (mmr > league_frames[f'{region}_3']):
+        league_max = 4
+    elif (mmr > league_frames[f'{region}_2']):
+        league_max = 3
+    elif (mmr > league_frames[f'{region}_1']):
+        league_max = 2
+    else:
+        league_max = 1
+    return league_max
