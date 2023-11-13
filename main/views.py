@@ -3,8 +3,6 @@ from datetime import datetime
 
 import requests
 
-from django.db.models import ExpressionWrapper, F, BooleanField
-from django.http import JsonResponse
 from main.models import *
 from main.serializers import *
 from rest_framework import status, viewsets, exceptions
@@ -62,7 +60,6 @@ class PlayersViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-\
         if serializer.validated_data['league'] is None:
             league_frames = leagueFrames()
             if serializer.validated_data['region'] == 1:
@@ -79,8 +76,6 @@ class PlayersViewSet(viewsets.ModelViewSet):
             raise exceptions.PermissionDenied("You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
-
-
 
 
 class ManagersViewSet(viewsets.ModelViewSet):
@@ -328,11 +323,15 @@ class GetClanMembers(APIView):
 
 class GetMemberLogo(APIView):
     def get(self, request, region, realm, character_id):
-        avatar = get_avatar(region, realm, character_id)
-        if avatar is not None:
-            return Response(avatar, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Character not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            avatar = get_avatar(region, realm, character_id)
+            if avatar is not None:
+                return Response(avatar, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Character not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            error_code = e.response.status_code
+            return Response({"error": str(e)}, status=error_code)
 
 
 @api_view(['GET'])
@@ -354,23 +353,18 @@ def is_manager_or_staff(request):
 
 
 def get_avatar(region, realm, character_id):
-    response = get_blizzard_data(region, realm, character_id)
-
-    if response.status_code == 200:
+    try:
+        response = get_blizzard_data(region, realm, character_id)
+        response.raise_for_status()
         data = response.json()
         avatar = data['avatarUrl']
         return avatar
-    elif response.status_code == 401:
-        new_token = get_new_access_token()
-        config.set('BLIZZARD', 'BLIZZARD_API_TOKEN', new_token)
-        with open('.ini', 'w') as f:
-            print('rewriting config file')
-            config.write(f)
-        return get_avatar(region, realm, character_id)
-    elif response.status_code == 404:
-        return None
-    else:
-        raise Exception(f"{response.status_code}")
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            return None
+        else:
+            raise e
+
 
 
 @api_view(['GET'])
@@ -428,6 +422,7 @@ def leagueFrames():
 
 
 def get_league(mmr, league_frames, region):
+    mmr = int(mmr)
     if (mmr > league_frames[f'{region}_6']):
         league_max = 7
     elif (mmr > league_frames[f'{region}_5']):
@@ -443,3 +438,22 @@ def get_league(mmr, league_frames, region):
     else:
         league_max = 1
     return league_max
+
+
+@api_view(['GET'])
+def get_league_by_mmr(request):
+    mmr = request.query_params.get('mmr', None)
+    region = request.query_params.get('region', None)
+    league_frames = leagueFrames()
+
+    if mmr is None:
+        return Response({"error": "MMR is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
+    if region is None:
+        return Response({"error": "Region is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
+    if mmr=='NaN':
+        return Response({"league": 0}, status=status.HTTP_200_OK)
+    try:
+        resp = get_league(mmr, league_frames, region)
+        return Response({"league": resp}, status=status.HTTP_200_OK)
+    except:
+        return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
