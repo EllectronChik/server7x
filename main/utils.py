@@ -19,17 +19,30 @@ async def get_blizzard_league_data(region, league):
                 return tier['max_rating']
 
     elif response.status_code == 401:
-        new_token = get_new_access_token()
-        config.set('BLIZZARD', 'BLIZZARD_API_TOKEN', new_token)
-        with open('.ini', 'w') as f:
-            config.write(f)
+        get_new_access_token()
         return await get_blizzard_league_data(region, league)
+    
+    elif response.status_code == 404:
+        api_url = f'https://{region}.api.blizzard.com/data/sc2/league/{season - 1}/201/0/{league - 1}?locale=en_US&access_token={token}'
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            data = response.json()
+            for tier in data['tier']:
+                if tier['id'] == 0:
+                    return tier['max_rating']
+        elif response.status_code == 401:
+            get_new_access_token()
+            return await get_blizzard_league_data(region, league)
+        else:
+            return None
+        
 
 
 async def get_season():
     current_time = datetime.datetime.utcnow().isoformat()
 
     get_season = f'https://sc2pulse.nephest.com/sc2/api/season/state/{current_time}Z/DAY'
+    print(get_season)
 
     response = requests.get(get_season)
 
@@ -61,6 +74,9 @@ def get_new_access_token():
     response = requests.post(token_url, data=data, auth=(client_id, client_secret))
 
     if response.status_code == 200:
+        config.set('BLIZZARD', 'BLIZZARD_API_TOKEN', response.json()['access_token'])
+        with open('.ini', 'w') as f:
+            config.write(f)
         return response.json()['access_token']
     else:
         return (response.status_code)
@@ -70,4 +86,11 @@ def get_blizzard_data(region, realm, character_id):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
     api_url = f'https://eu.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
     response = requests.get(api_url)
-    return response
+    if response.status_code == 200:
+        return response
+    elif response.status_code == 401:
+        get_new_access_token()
+
+        return get_blizzard_data(region, realm, character_id)
+    else:
+        return None
