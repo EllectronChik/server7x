@@ -11,9 +11,18 @@ class TeamsSerializer(serializers.ModelSerializer):
 
 
 class PlayersSerializer(serializers.ModelSerializer):
+    avatar = serializers.URLField(allow_blank=True)
     class Meta:
         model = Player
         fields = '__all__'
+
+    
+    def validate_avatar(self, value):
+        print('validate avatar ', value)
+        if value.split('.')[-1].lower() not in ['jpg', 'png', 'jpeg', 'svg']:
+            value = 'http://localhost:8000/media/players/logo/default.svg'
+        return value
+
 
 
 class ManagersSerializer(serializers.ModelSerializer):
