@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/v1/matches/<int:match_id>/teams/', views.MatchTeamsViewSet.as_view({'get': 'list'})),
     path('api/v1/get_players/<str:clan_tag>/', views.GetClanMembers.as_view()),
     path('api/v1/get_player_logo/<str:region>/<str:realm>/<str:character_id>/', views.GetMemberLogo.as_view()),
+    path('api/v1/get_league_by_mmr/', views.get_league_by_mmr, name='get_league_by_mmr'),
     path('api/v1/manager/team/', views.get_team_and_related_data, name='get_team_and_related_data'),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
