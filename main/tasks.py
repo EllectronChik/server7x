@@ -5,7 +5,7 @@ import asyncio
 
 
 @app.task
-def monthly_task():
+def daily_task():
     regions = ['eu', 'us', 'kr']
 
     for region in regions:
