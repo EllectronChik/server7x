@@ -231,7 +231,7 @@ class LeagueViewSet(viewsets.ModelViewSet):
 class AskForStaffViewSet(viewsets.ModelViewSet):
     queryset = AskForStaff.objects.all()
     serializer_class = AskForStaffSerializer
-    permission_classes = (isAdminOrOwnerOrReadOnly,)
+    permission_classes = (CanPostOrIsAdmin,)
     def perform_create(self, serializer):
 
         if serializer.validated_data['user'] != self.request.user:
