@@ -2,6 +2,7 @@ from rest_framework import serializers
 from djoser.serializers import UserSerializer, TokenSerializer
 from django.contrib.auth import get_user_model
 from main.models import *
+import re
 
 
 class TeamsSerializer(serializers.ModelSerializer):
@@ -38,10 +39,17 @@ class ManagerContactsSerializer(serializers.ModelSerializer):
 
 
 class TeamResourcesSerializer(serializers.ModelSerializer):
+    url = serializers.CharField()
     class Meta:
         model = TeamResource
         fields = '__all__'
-
+    
+    def validate_url(self, value):
+        protocol_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
+        not_protocol_pattern = "^[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
+        if not re.match(protocol_pattern, value) and not re.match(not_protocol_pattern, value):
+            raise serializers.ValidationError('Invalid URL')
+        return value
 
 class StagesSerializer(serializers.ModelSerializer):
     class Meta:
