@@ -231,7 +231,7 @@ class LeagueViewSet(viewsets.ModelViewSet):
 class AskForStaffViewSet(viewsets.ModelViewSet):
     queryset = AskForStaff.objects.all()
     serializer_class = AskForStaffSerializer
-    permission_classes = (CanPostOrIsAdmin,)
+    permission_classes = (permissions.IsAdminUser | permissions.IsAuthenticated,)
     def perform_create(self, serializer):
 
         if serializer.validated_data['user'] != self.request.user:
@@ -239,8 +239,17 @@ class AskForStaffViewSet(viewsets.ModelViewSet):
         else:
             serializer.save(user=self.request.user)
 
-        serializer.save(user=self.request.user)
-
+    def get_queryset(self):
+        if self.request.user.is_staff and self.request.query_params.get('user') is None:
+            return AskForStaff.objects.all()
+        elif self.request.user.is_staff and self.request.query_params.get('user') is not None:
+            user = self.request.query_params.get('user')
+            return AskForStaff.objects.filter(user=user)
+        queryset = AskForStaff.objects.all()
+        user = self.request.query_params.get('user')
+        if user and (int(user) == self.request.user.id):
+            return queryset.filter(user=user) 
+        return AskForStaff.objects.none()
 
 class GetClanMembers(APIView):
     def get(self, request, clan_tag):
