@@ -1,26 +1,22 @@
 from django.db import models
 import os
 from django.forms import ValidationError
-from django.utils.text import slugify
+
 
 # Create your models here.
 class Match(models.Model):
-    season = models.IntegerField()
-    stage = models.ForeignKey('Stage', on_delete=models.PROTECT)
     player_one = models.ForeignKey('Player', 
                                    on_delete=models.PROTECT, 
                                    related_name='player_one', 
                                    null=True, blank=True, default=None)
-    player_one_wins = models.IntegerField(null=True, blank=True)
     player_two = models.ForeignKey('Player', 
                                    on_delete=models.PROTECT, 
                                    related_name='player_two', 
                                    null=True, blank=True, default=None)
-    player_two_wins = models.IntegerField(null=True, blank=True)
-    match_start_time = models.DateTimeField()
-    is_finished = models.BooleanField()
+    winner = models.BooleanField(null=True, blank=True, default=None)
+    tournament = models.ForeignKey('Tournament', on_delete=models.PROTECT)
+    map = models.CharField(max_length=100)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
-
     def get_teams(self):
         teams = [self.player_one.team, self.player_two.team]
         return teams
@@ -35,10 +31,61 @@ class Match(models.Model):
     def clean(self):
         if self.player_one == self.player_two:
             raise ValidationError("Players can't be equal")
+        if self.player_one.team == self.player_two.team:
+            raise ValidationError("Teams can't be equal")
     
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+
+
+class UserDevice(models.Model):
+    user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+    device = models.IntegerField()
+
+    def __str__(self):
+        return f"{self.user} - {self.device}"
+
+
+class Tournament(models.Model):
+    team_one = models.ForeignKey('Team', 
+                                 on_delete=models.PROTECT,
+                                 related_name='team_one',)
+    team_two = models.ForeignKey('Team', 
+                                 on_delete=models.PROTECT,
+                                 related_name='team_two',)
+    match_start_time = models.DateTimeField()
+    season = models.ForeignKey('Season', on_delete=models.PROTECT)
+    stage = models.ForeignKey('Stage', on_delete=models.PROTECT)
+    is_finished = models.BooleanField()
+    
+    def __str__(self):
+        return f"{self.team_one} vs {self.team_two}"
+    
+    def clean(self):
+        if self.team_one == self.team_two:
+            raise ValidationError("Teams can't be equal")
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
+class Schedule(models.Model):
+    DAY_CHOICES = (
+        (1, 'Monday'),
+        (2, 'Tuesday'),
+        (3, 'Wednesday'),
+        (4, 'Thursday'),
+        (5, 'Friday'),
+        (6, 'Saturday'),
+        (7, 'Sunday'),
+    )
+    time = models.TimeField()
+    day = models.IntegerField(choices=DAY_CHOICES)
+
+    def __str__(self):
+        return str(self.date_time)
 
 
 class Stage(models.Model):
@@ -47,6 +94,12 @@ class Stage(models.Model):
     def __str__(self):
         return self.name
 
+
+class Season(models.Model):
+    number = models.IntegerField()
+
+    def __str__(self):
+        return str(self.number)
 
 class Player(models.Model):
     username = models.CharField(max_length=100)
