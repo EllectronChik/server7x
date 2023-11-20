@@ -38,6 +38,31 @@ class ManagerContactsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class SeasonsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Season
+        fields = '__all__'
+
+
+class ScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Schedule
+        fields = '__all__'
+
+    
+class TournamentsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tournament
+        fields = '__all__'
+
+
+class UserDevicesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserDevice
+        fields = '__all__'
+
+
+
 class TeamResourcesSerializer(serializers.ModelSerializer):
     url = serializers.CharField()
     class Meta:
