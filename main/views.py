@@ -9,9 +9,9 @@ from rest_framework import status, viewsets, exceptions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from djoser.utils import logout_user
 
 from .permissions import *
 from .utils import get_blizzard_data, get_new_access_token
@@ -139,7 +139,25 @@ class StagesViewSet(viewsets.ModelViewSet):
     queryset = Stage.objects.all()
     serializer_class = StagesSerializer
     permission_classes = (isAdminOrReadOnly, )
-    
+
+
+class SeasonsViewSet(viewsets.ModelViewSet):
+    queryset = Season.objects.all()
+    serializer_class = SeasonsSerializer
+    permission_classes = (isAdminOrReadOnly, )
+
+
+class ScheduleViewSet(viewsets.ModelViewSet):
+    queryset = Schedule.objects.all()
+    serializer_class = ScheduleSerializer
+    permission_classes = (isAdminOrReadOnly, )
+
+
+class TournamentsViewSet(viewsets.ModelViewSet):
+    queryset = Tournament.objects.all()
+    serializer_class = TournamentsSerializer
+    permission_classes = (isAdminOrReadOnly, )
+
 
 class RegionsViewSet(viewsets.ModelViewSet):
     serializer_class = RegionsSerializer
@@ -158,29 +176,12 @@ class MatchesViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Match.objects.all()
-        season = self.request.query_params.get('season')
-        Stage = self.request.query_params.get('stage')
         player_one = self.request.query_params.get('player_one')
         player_two = self.request.query_params.get('player_two')
-        is_finished = self.request.query_params.get('is_finished')
-        started = self.request.query_params.get('started')
-        if season is not None:
-            queryset = queryset.filter(season=season)
-        if Stage is not None:
-            queryset = queryset.filter(stage=Stage)
         if player_one is not None:
             queryset = queryset.filter(player_one=player_one)
         if player_two is not None:
             queryset = queryset.filter(player_two=player_two)
-        if is_finished is not None:
-            queryset = queryset.filter(is_finished=is_finished)
-
-        if started is not None:
-            current_time = datetime.now()
-            if started == 'True':
-                queryset = queryset.filter(match_start_time__lte=current_time)
-            elif started == 'False':
-                queryset = queryset.filter(match_start_time__gt=current_time)
 
         return queryset
 
@@ -250,6 +251,57 @@ class AskForStaffViewSet(viewsets.ModelViewSet):
         if user and (int(user) == self.request.user.id):
             return queryset.filter(user=user) 
         return AskForStaff.objects.none()
+    
+
+class UserDeviceViewSet(viewsets.ModelViewSet):
+    queryset = UserDevice.objects.all()
+    serializer_class = UserDevicesSerializer
+    permission_classes = (permissions.IsAdminUser | permissions.IsAuthenticated, )
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        user_devices = queryset.filter(user=self.request.user)
+        device_values = user_devices.values_list('device', flat=True)
+        return Response(list(device_values))
+
+    # def get_queryset(self):
+    #     if self.request.user.is_staff and self.request.data.get('user') is None:
+    #         return UserDevice.objects.all()
+    #     elif self.request.user.is_staff and self.request.data.get('user') is not None:
+    #         user = self.request.data.get('user')
+    #         return UserDevice.objects.filter(user=user)
+    #     queryset = UserDevice.objects.all()
+    #     user = self.request.data.get('user')
+    #     if user and (int(user) == self.request.user.id):
+    #         return queryset.filter(user=user) 
+    #     return UserDevice.objects.none()
+    
+    def patch(self, request, *args, **kwargs):
+        if request.data.get('action') not in ['increase', 'decrease']:
+            return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user_device = UserDevice.objects.get(user=self.request.user.id)
+        except UserDevice.DoesNotExist:
+            user_device = UserDevice.objects.create(user=self.request.user, device=0)
+        
+        current_device_value = user_device.device
+
+        if request.data.get('action') == 'increase':
+            new_device_value = current_device_value + 1
+        elif request.data.get('action') == 'decrease':
+            new_device_value = current_device_value - 1
+        else:
+            return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_device.device = new_device_value
+        user_device.save()
+
+        if new_device_value == 0:
+            logout_user(self.request)
+            
+
+        return Response({"device": new_device_value}, status=status.HTTP_200_OK)
+
 
 class GetClanMembers(APIView):
     def get(self, request, clan_tag):
