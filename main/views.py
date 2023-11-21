@@ -1,5 +1,5 @@
 import configparser
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from djoser.utils import logout_user
+from django.contrib.auth.models import User
 
 from .permissions import *
 from .utils import get_blizzard_data, get_new_access_token
@@ -227,30 +228,6 @@ class LeagueViewSet(viewsets.ModelViewSet):
     queryset = League.objects.all()
     serializer_class = LeagueSerializer
     permission_classes = (isAdminOrReadOnly, )
-
-
-class AskForStaffViewSet(viewsets.ModelViewSet):
-    queryset = AskForStaff.objects.all()
-    serializer_class = AskForStaffSerializer
-    permission_classes = (permissions.IsAdminUser | permissions.IsAuthenticated,)
-    def perform_create(self, serializer):
-
-        if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
-        else:
-            serializer.save(user=self.request.user)
-
-    def get_queryset(self):
-        if self.request.user.is_staff and self.request.query_params.get('user') is None:
-            return AskForStaff.objects.all()
-        elif self.request.user.is_staff and self.request.query_params.get('user') is not None:
-            user = self.request.query_params.get('user')
-            return AskForStaff.objects.filter(user=user)
-        queryset = AskForStaff.objects.all()
-        user = self.request.query_params.get('user')
-        if user and (int(user) == self.request.user.id):
-            return queryset.filter(user=user) 
-        return AskForStaff.objects.none()
     
 
 class UserDeviceViewSet(viewsets.ModelViewSet):
@@ -264,17 +241,6 @@ class UserDeviceViewSet(viewsets.ModelViewSet):
         device_values = user_devices.values_list('device', flat=True)
         return Response(list(device_values))
 
-    # def get_queryset(self):
-    #     if self.request.user.is_staff and self.request.data.get('user') is None:
-    #         return UserDevice.objects.all()
-    #     elif self.request.user.is_staff and self.request.data.get('user') is not None:
-    #         user = self.request.data.get('user')
-    #         return UserDevice.objects.filter(user=user)
-    #     queryset = UserDevice.objects.all()
-    #     user = self.request.data.get('user')
-    #     if user and (int(user) == self.request.user.id):
-    #         return queryset.filter(user=user) 
-    #     return UserDevice.objects.none()
     
     def patch(self, request, *args, **kwargs):
         if request.data.get('action') not in ['increase', 'decrease']:
@@ -518,3 +484,44 @@ def get_league_by_mmr(request):
         return Response({"league": resp}, status=status.HTTP_200_OK)
     except:
         return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAdminUser])
+def user_staff_status_true(request):
+    try:
+        user = User.objects.get(username=request.data.get('username'))
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if user.is_staff:
+        return Response({"error": "User is already staff"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user.is_staff = True
+    user.save()
+
+    return Response({"message": "User staff status updated"}, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAdminUser])
+def user_staff_status_false(request):
+    try:
+        user = User.objects.get(username=request.data.get('username'))
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if not user.is_staff:
+        return Response({"error": "User is already not staff"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user.is_staff = False
+    user.save()
+
+    return Response({"message": "User staff status updated"}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_current_tournaments(request):
+    tournaments = Tournament.objects.filter(match_start_time_lt = timezone.now(), is_finished = False).order_by('match_start_time')
+    serializer = TournamentsSerializer(tournaments, many=True)
+    return Response(serializer.data)
