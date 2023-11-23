@@ -1,5 +1,4 @@
 import configparser
-from datetime import datetime, timezone
 
 import requests
 
@@ -12,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from djoser.utils import logout_user
+from django.utils import timezone
 from django.contrib.auth.models import User
 
 from .permissions import *
@@ -522,6 +522,32 @@ def user_staff_status_false(request):
 
 @api_view(['GET'])
 def get_current_tournaments(request):
-    tournaments = Tournament.objects.filter(match_start_time_lt = timezone.now(), is_finished = False).order_by('match_start_time')
+    tournaments = Tournament.objects.filter(match_start_time__lte = timezone.now(), is_finished = False).order_by('match_start_time')
     serializer = TournamentsSerializer(tournaments, many=True)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_current_season(request):
+    print(timezone.now())
+    seasons = Season.objects.filter(is_finished = False)
+    if len(seasons) == 0:
+        return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
+    season = seasons[0]
+    serializer = SeasonsSerializer(season)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_last_season(request):
+    seasons = Season.objects.last()
+    print(request, seasons)
+    serializer = SeasonsSerializer(seasons)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_last_season_number(request):
+    season = Season.objects.last().number
+    print(request, season)
+    return Response(season)

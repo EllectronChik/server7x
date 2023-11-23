@@ -19,7 +19,7 @@ router.register(r'leagues', views.LeagueViewSet)
 router.register(r'seasons', views.SeasonsViewSet)
 router.register(r'tournaments', views.TournamentsViewSet)
 router.register(r'schedule', views.ScheduleViewSet)
-router.register(r'users_devices', views.UserDeviceViewSet, basename='users_devices', )
+router.register(r'users_devices', views.UserDeviceViewSet, basename='users_devices')
 
 
 urlpatterns = [
@@ -33,7 +33,10 @@ urlpatterns = [
     path('api/v1/set_staff_true/', views.user_staff_status_true, name='set_staff_true'),
     path('api/v1/set_staff_false/', views.user_staff_status_false, name='set_staff_false'),
     path('api/v1/manager/team/', views.get_team_and_related_data, name='get_team_and_related_data'),
-    path('get_current_tournaments', views.get_current_tournaments, name='get_current_tournaments'),
+    path('api/v1/get_current_tournaments/', views.get_current_tournaments, name='get_current_tournaments'),
+    path('api/v1/get_current_season/', views.get_current_season, name='get_current_season'),
+    path('api/v1/get_last_season/', views.get_last_season, name='get_last_season'),
+    path('api/v1/get_last_season_number/', views.get_last_season_number, name='get_last_season_number'),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
     path('api/v1/auth/', include('djoser.urls')),
