@@ -97,6 +97,9 @@ class Stage(models.Model):
 
 class Season(models.Model):
     number = models.IntegerField()
+    start_datetime = models.DateTimeField()
+    is_finished = models.BooleanField()
+    can_register = models.BooleanField()
 
     def __str__(self):
         return str(self.number)
