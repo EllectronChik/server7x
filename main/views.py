@@ -146,6 +146,21 @@ class SeasonsViewSet(viewsets.ModelViewSet):
     queryset = Season.objects.all()
     serializer_class = SeasonsSerializer
     permission_classes = (isAdminOrReadOnly, )
+    
+    def get_object_or_404(self):
+        number = self.kwargs.get('pk')
+        try:
+            return Season.objects.get(number=number)
+        except Season.DoesNotExist:
+            return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object_or_404()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 
 
 class ScheduleViewSet(viewsets.ModelViewSet):
