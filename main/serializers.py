@@ -109,7 +109,7 @@ class LeagueSerializer(serializers.ModelSerializer):
 class CustomUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         model = get_user_model()
-        fields = ('id', 'username', 'email', 'is_staff')
+        fields = ('id', 'username', 'is_staff')
 
 
 class CustomTokenSerializer(TokenSerializer):
