@@ -186,6 +186,18 @@ class RegionsViewSet(viewsets.ModelViewSet):
         return Region.objects.all().order_by('name')
     
 
+class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
+    queryset = TournamentRegistration.objects.all()
+    serializer_class = TournamentRegistrationSerializer
+    permission_classes = (isAdminOrReadOnly, )
+
+    def perform_create(self, serializer):
+        if serializer.validated_data['user'] != self.request.user:
+            raise exceptions.PermissionDenied("You can only create objects with your own id")
+        else:
+            serializer.save(user=self.request.user)
+    
+
 class MatchesViewSet(viewsets.ModelViewSet):
     serializer_class = MatchesSerializer
     permission_classes = (canEditMatchField,)

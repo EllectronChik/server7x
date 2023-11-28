@@ -116,3 +116,9 @@ class CustomTokenSerializer(TokenSerializer):
     user_id = serializers.IntegerField(source='user.id')
     class Meta(TokenSerializer.Meta):
         fields = ('user_id', 'auth_token')
+
+
+class TournamentRegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TournamentRegistration
+        fields = '__all__'

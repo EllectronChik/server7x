@@ -20,6 +20,7 @@ router.register(r'seasons', views.SeasonsViewSet)
 router.register(r'tournaments', views.TournamentsViewSet)
 router.register(r'schedule', views.ScheduleViewSet)
 router.register(r'users_devices', views.UserDeviceViewSet, basename='users_devices')
+router.register(r'tournament_registration', views.TournamentRegistrationsViewSet, basename='tournament_registration')
 
 
 urlpatterns = [

@@ -16,6 +16,7 @@ admin.site.register(Season)
 admin.site.register(Tournament)
 admin.site.register(Schedule)
 admin.site.register(UserDevice)
+admin.site.register(TournamentRegistration)
 
 
 class LeagueFrameAdmin(admin.ModelAdmin):

@@ -93,7 +93,15 @@ class Stage(models.Model):
 
     def __str__(self):
         return self.name
+    
 
+class TournamentRegistration(models.Model):
+    season = models.ForeignKey('Season', on_delete=models.PROTECT)
+    user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+    team = models.ForeignKey('Team', on_delete=models.PROTECT)
+
+    def __str__(self):
+        return f"{self.season} - {self.team}"
 
 class Season(models.Model):
     number = models.IntegerField()
