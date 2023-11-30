@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from djoser.serializers import UserSerializer, TokenSerializer
+from rest_framework import status
 from django.contrib.auth import get_user_model
 from main.models import *
 import re
@@ -119,6 +120,31 @@ class CustomTokenSerializer(TokenSerializer):
 
 
 class TournamentRegistrationSerializer(serializers.ModelSerializer):
+    season = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = TournamentRegistration
-        fields = '__all__'
+        fields = ['user', 'team', 'season']
+
+    def create(self, validated_data):
+        season_number = validated_data.pop('season')
+        user = self.initial_data.get('user')
+        team = self.initial_data.get('team')
+        try:
+            season = Season.objects.get(number=season_number)
+        except Season.DoesNotExist:
+            raise serializers.ValidationError("Season not found", code=status.HTTP_404_NOT_FOUND)
+        if (season.is_finished):
+
+            raise serializers.ValidationError("Season is already finished", code=status.HTTP_400_BAD_REQUEST)
+        try:
+            manager = Manager.objects.get(user=user, team=team)
+        except Manager.DoesNotExist:
+            raise serializers.ValidationError("You can only register for your team", code=status.HTTP_403_FORBIDDEN)
+        
+        if (TournamentRegistration.objects.filter(season=season, user=user, team=team).exists()):
+            raise serializers.ValidationError("You have already registered for this season", code=status.HTTP_400_BAD_REQUEST)
+
+        registration = TournamentRegistration.objects.create(season=season, **validated_data)
+
+        return registration
