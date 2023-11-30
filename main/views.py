@@ -424,7 +424,6 @@ def get_avatar(region, realm, character_id):
 @api_view(['GET'])
 def get_team_and_related_data(request):
     user_id = request.query_params.get('user', None)
-    print(user_id)
     if user_id is None:
         print("User ID is required in query parameter")
         return Response({"error": "User ID is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
@@ -438,14 +437,22 @@ def get_team_and_related_data(request):
     players = Player.objects.filter(team=team)
     team_resources = TeamResource.objects.filter(team=team)
 
+    team_id = team.id
     team_name = team.name
     team_logo_url = team.logo.url
+    try:
+        season = Season.objects.get(is_finished=False)
+    except:
+        season = None
+    is_reg_to_current_season = TournamentRegistration.objects.filter(user=user_id, team=team, season=season).exists()
 
     team_data = {
+        "team_id": team_id,
         "team_name": team_name,
         "team_logo_url": team_logo_url,
         "players": list(players.values()),
-        "team_resources": list(team_resources.values())
+        "team_resources": list(team_resources.values()),
+        "is_reg_to_current_season": is_reg_to_current_season
     }
 
     return Response(team_data)
@@ -556,7 +563,6 @@ def get_current_tournaments(request):
 
 @api_view(['GET'])
 def get_current_season(request):
-    print(timezone.now())
     seasons = Season.objects.filter(is_finished = False)
     if len(seasons) == 0:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
