@@ -1,6 +1,7 @@
 import configparser
 import datetime
 import requests
+from rest_framework.response import Response
 
 
 config = configparser.ConfigParser()
@@ -90,7 +91,6 @@ def get_blizzard_data(region, realm, character_id):
         return response
     elif response.status_code == 401:
         get_new_access_token()
-
         return get_blizzard_data(region, realm, character_id)
     else:
-        return None
+        return Response({"error": "Character not found"}, status=404)
