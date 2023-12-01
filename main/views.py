@@ -189,7 +189,7 @@ class RegionsViewSet(viewsets.ModelViewSet):
 class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
     queryset = TournamentRegistration.objects.all()
     serializer_class = TournamentRegistrationSerializer
-    permission_classes = (isAdminOrReadOnly, )
+    permission_classes = (isAdminOrOwnerOrReadOnly, )
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
@@ -409,7 +409,8 @@ def is_manager_or_staff(request):
 def get_avatar(region, realm, character_id):
     try:
         response = get_blizzard_data(region, realm, character_id)
-        response.raise_for_status()
+        if response.status_code == 404:
+            return None
         data = response.json()
         avatar = data['avatarUrl']
         return avatar
@@ -450,7 +451,18 @@ def get_team_and_related_data(request):
         "team_id": team_id,
         "team_name": team_name,
         "team_logo_url": team_logo_url,
-        "players": list(players.values()),
+        "players": [{"id": player.id, 
+                     "username": player.username, 
+                     "avatar": player.avatar, 
+                     "mmr": player.mmr, 
+                     "league": player.league_id, 
+                     "race": player.race_id, 
+                     "wins": player.wins, 
+                     "total_games": player.total_games, 
+                     "team": player.team_id, 
+                     "user": player.user_id, 
+                     "region": player.region} for player in players]
+,
         "team_resources": list(team_resources.values()),
         "is_reg_to_current_season": is_reg_to_current_season
     }
