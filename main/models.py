@@ -137,6 +137,17 @@ class Team(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        try:
+            this = Team.objects.get(id=self.id)
+            if this.logo != self.logo:
+                old_logo = this.logo
+                if old_logo:
+                    os.remove(old_logo.path)
+        except:
+            pass
+        super(Team, self).save(*args, **kwargs)
 
 
 class Region(models.Model):
