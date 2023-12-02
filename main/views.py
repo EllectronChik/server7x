@@ -440,7 +440,11 @@ def get_team_and_related_data(request):
 
     team_id = team.id
     team_name = team.name
+    team_tag = team.tag
     team_logo_url = team.logo.url
+    team_region_name = team.region.name
+    team_region_flag = team.region.flag_url.url
+    print(team_region_flag)
     try:
         season = Season.objects.get(is_finished=False)
     except:
@@ -450,7 +454,10 @@ def get_team_and_related_data(request):
     team_data = {
         "team_id": team_id,
         "team_name": team_name,
+        "team_tag": team_tag,
         "team_logo_url": team_logo_url,
+        "team_region_name": team_region_name,
+        "team_region_flag": team_region_flag,
         "players": [{"id": player.id, 
                      "username": player.username, 
                      "avatar": player.avatar, 
