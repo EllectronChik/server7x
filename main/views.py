@@ -294,7 +294,35 @@ class UserDeviceViewSet(viewsets.ModelViewSet):
             
 
         return Response({"device": new_device_value}, status=status.HTTP_200_OK)
+    
 
+class PlayerToTournamentViewSet(viewsets.ModelViewSet):
+    queryset = PlayerToTournament.objects.all()
+    serializer_class = PlayerToTournamentSerializer
+    permission_classes = (isAdminOrOwnerOrReadOnly, )
+
+    def destroy(self, request, *args, **kwargs):
+        player_id = self.kwargs.get('pk')
+        user = request.user
+        if user.is_anonymous:
+            return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
+        print(player_id)
+        try:
+            player = Player.objects.get(pk=player_id)
+        except Player.DoesNotExist:
+            return Response({"error": "Player not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            player_to_tournament = PlayerToTournament.objects.get(player=player, user=user)
+            player_to_tournament.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except PlayerToTournament.DoesNotExist:
+            try:
+                player_to_tournament = PlayerToTournament.objects.get(player=player)
+                if player_to_tournament:
+                    return Response({"error": "You are not owner of this player"}, status=status.HTTP_403_FORBIDDEN)
+            except PlayerToTournament.DoesNotExist:
+                return Response({"error": "Player does not registered"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Player does not registered"}, status=status.HTTP_404_NOT_FOUND)
 
 class GetClanMembers(APIView):
     def get(self, request, clan_tag):

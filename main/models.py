@@ -158,6 +158,15 @@ class Region(models.Model):
         return self.name
     
 
+class PlayerToTournament(models.Model):
+    player = models.ForeignKey('Player', on_delete=models.PROTECT)
+    Season = models.ForeignKey('Season', on_delete=models.PROTECT)
+    user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+
+    def __str__(self):
+        return self.player.username
+    
+
 class TeamResource(models.Model):
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
     url = models.URLField()

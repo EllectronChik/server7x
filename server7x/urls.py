@@ -21,6 +21,7 @@ router.register(r'tournaments', views.TournamentsViewSet)
 router.register(r'schedule', views.ScheduleViewSet)
 router.register(r'users_devices', views.UserDeviceViewSet, basename='users_devices')
 router.register(r'tournament_registration', views.TournamentRegistrationsViewSet, basename='tournament_registration')
+router.register(r'player_to_tournament', views.PlayerToTournamentViewSet, basename='player_to_tournament')
 
 
 urlpatterns = [
@@ -38,6 +39,7 @@ urlpatterns = [
     path('api/v1/get_current_season/', views.get_current_season, name='get_current_season'),
     path('api/v1/get_last_season/', views.get_last_season, name='get_last_season'),
     path('api/v1/get_last_season_number/', views.get_last_season_number, name='get_last_season_number'),
+    path('api/v1/player_to_tournament/<int:pk>/', views.PlayerToTournamentViewSet.as_view({'delete': 'destroy'}), name='delete_player_to_tournament'),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
     path('api/v1/auth/', include('djoser.urls')),

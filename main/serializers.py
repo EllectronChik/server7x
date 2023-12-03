@@ -89,6 +89,37 @@ class RegionsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class PlayerToTournamentSerializer(serializers.ModelSerializer):
+    season = serializers.IntegerField(write_only=True)
+    class Meta:
+        model = PlayerToTournament
+        fields = ['player', 'season']
+
+    def create(self, validated_data):
+        season_number = validated_data.pop('season')
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            raise serializers.ValidationError("Authentication credentials were not provided", code=status.HTTP_401_UNAUTHORIZED)
+        player = self.initial_data.get('player')
+        try:
+            season = Season.objects.get(number=season_number)
+        except Season.DoesNotExist:
+            raise serializers.ValidationError("Season not found", code=status.HTTP_404_NOT_FOUND)
+        if (season.is_finished):
+            raise serializers.ValidationError("Season is already finished", code=status.HTTP_400_BAD_REQUEST)
+        try:
+            player = Player.objects.get(user=user, id=player)
+        except Player.DoesNotExist:
+            raise serializers.ValidationError("You can only register for your team", code=status.HTTP_403_FORBIDDEN)
+        
+        if (PlayerToTournament.objects.filter(Season=season, user=user, player=player).exists()):
+            raise serializers.ValidationError("You have already registered for this season", code=status.HTTP_400_BAD_REQUEST)
+
+        registration = PlayerToTournament.objects.create(Season=season, user=user, **validated_data)
+
+        return registration
+
+
 class MatchesSerializer(serializers.ModelSerializer):     
     class Meta:
         model = Match
