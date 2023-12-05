@@ -90,13 +90,21 @@ class RegionsSerializer(serializers.ModelSerializer):
 
 
 class PlayerToTournamentSerializer(serializers.ModelSerializer):
-    season = serializers.IntegerField(write_only=True)
+    season = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    season_number = serializers.IntegerField(write_only=True)
     class Meta:
         model = PlayerToTournament
-        fields = ['player', 'season']
+        fields = ['player', 'season', 'user', 'season_number']
+
+    def get_season(self, obj):
+        return obj.Season.number
+    
+    def get_user(self, obj):
+        return obj.user.id
 
     def create(self, validated_data):
-        season_number = validated_data.pop('season')
+        season_number = validated_data.pop('season_number')
         user = self.context['request'].user
         if not user.is_authenticated:
             raise serializers.ValidationError("Authentication credentials were not provided", code=status.HTTP_401_UNAUTHORIZED)
@@ -118,6 +126,7 @@ class PlayerToTournamentSerializer(serializers.ModelSerializer):
         registration = PlayerToTournament.objects.create(Season=season, user=user, **validated_data)
 
         return registration
+
 
 
 class MatchesSerializer(serializers.ModelSerializer):     

@@ -324,6 +324,20 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
                 return Response({"error": "Player does not registered"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"error": "Player does not registered"}, status=status.HTTP_404_NOT_FOUND)
 
+    def get_queryset(self):
+        user = self.request.query_params.get('user')
+        season = self.request.query_params.get('season')
+        try:
+            if user:
+                return PlayerToTournament.objects.filter(user=user)
+            if season:
+                return PlayerToTournament.objects.filter(Season=season)
+        except ValueError:
+            return PlayerToTournament.objects.all()
+        if user and season:
+            return PlayerToTournament.objects.filter(user=user, Season=season)
+        return PlayerToTournament.objects.all()
+
 class GetClanMembers(APIView):
     def get(self, request, clan_tag):
         api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
