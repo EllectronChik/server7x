@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 
 from .permissions import *
-from .utils import get_blizzard_data, get_new_access_token
+from .utils import get_blizzard_data, distribute_teams_to_groups
 # Create your views here.
 
 config = configparser.ConfigParser()
@@ -430,6 +430,23 @@ class GetMemberLogo(APIView):
             return Response({"error": str(e)}, status=error_code)
 
 
+class groupStageViewSet(viewsets.ModelViewSet):
+    queryset = GroupStage.objects.all()
+    serializer_class = groupStageSerializer
+    permission_classes = (isAdminOrReadOnly, )
+
+    def get_queryset(self):
+        season = self.request.query_params.get('season')
+        try:
+            int(season)
+        except:
+            return GroupStage.objects.all()
+        season = Season.objects.get(number=season)
+        if season:
+            return GroupStage.objects.filter(season=season)
+        return GroupStage.objects.all()
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_authenticated(request):
@@ -642,6 +659,74 @@ def get_last_season(request):
 
 @api_view(['GET'])
 def get_last_season_number(request):
-    season = Season.objects.last().number
-    print(request, season)
-    return Response(season)
+    try:
+        season = Season.objects.last()
+        season_number = season.number
+    except:
+        return Response({"error": "Seasons have not yet been held"}, status=status.HTTP_404_NOT_FOUND)
+    return Response(season_number)
+
+
+@api_view(['GET'])
+# @permission_classes([permissions.IsAdminUser])
+def randomizeGroups(request):
+    season = request.query_params.get('Season')
+    try:
+        int(season)
+    except:
+        return Response({"error": "Season is required as integer"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        season = Season.objects.get(number=season)
+    except Season.DoesNotExist:
+        return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
+    if season is None:
+        return Response({"error": "Season is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if season.is_finished:
+        return Response({"error": "Season is already finished"}, status=status.HTTP_400_BAD_REQUEST)
+    group_cnt = request.query_params.get('groupCnt')
+
+    if group_cnt is None:
+        return Response({"error": "groupCnt is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    tournamentRegistrations = TournamentRegistration.objects.filter(season=season)
+    distribute_teams_to_groups(list(tournamentRegistrations), group_cnt)   
+
+    groupStages = GroupStage.objects.filter(season=season)
+    
+    responseData = []
+    for groupStage in groupStages:
+        groupInfo = {
+            'id': groupStage.id,
+            'groupMark': groupStage.groupMark,
+            'teams': [team.id for team in groupStage.teams.all()]
+        }
+        responseData.append(groupInfo)
+
+    return Response(responseData)
+
+
+@api_view(['GET'])
+def getRegistred(request):
+    season = request.query_params.get('Season')
+    try:
+        int(season)
+    except:
+        return Response({"error": "Season is required as integer"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        season = Season.objects.get(number=season)
+    except Season.DoesNotExist:
+        return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
+    if season is None:
+        return Response({"error": "Season is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if season.is_finished:
+        return Response({"error": "Season is already finished"}, status=status.HTTP_400_BAD_REQUEST)
+    tournamentRegistrations = TournamentRegistration.objects.filter(season=season)
+    responseData = []
+    for tournamentRegistration in tournamentRegistrations:
+        team_id = tournamentRegistration.team.id
+        team = Team.objects.get(id=team_id)
+        teamData = TeamsSerializer(team).data
+        responseData.append({
+            'team': teamData,
+        })
+    return Response(responseData)
