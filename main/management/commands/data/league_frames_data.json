@@ -1,0 +1,92 @@
+[
+    {
+        "league": 1,
+        "region": "eu",
+        "frame_max": 1760
+    },
+    {
+        "league": 2,
+        "region": "eu",
+        "frame_max": 2320
+    },
+    {
+        "league": 3,
+        "region": "eu",
+        "frame_max": 2720
+    },
+    {
+        "league": 4,
+        "region": "eu",
+        "frame_max": 3120
+    },
+    {
+        "league": 5,
+        "region": "eu",
+        "frame_max": 4320
+    },
+    {
+        "league": 6,
+        "region": "eu",
+        "frame_max": 5044
+    },
+    {
+        "league": 1,
+        "region": "us",
+        "frame_max": 1720
+    },
+    {
+        "league": 2,
+        "region": "us",
+        "frame_max": 2320
+    },
+    {
+        "league": 3,
+        "region": "us",
+        "frame_max": 2680
+    },
+    {
+        "league": 4,
+        "region": "us",
+        "frame_max": 3120
+    },
+    {
+        "league": 5,
+        "region": "us",
+        "frame_max": 4240
+    },
+    {
+        "league": 6,
+        "region": "us",
+        "frame_max": 4944
+    },
+    {
+        "league": 1,
+        "region": "kr",
+        "frame_max": 2000
+    },
+    {
+        "league": 2,
+        "region": "kr",
+        "frame_max": 2480
+    },
+    {
+        "league": 3,
+        "region": "kr",
+        "frame_max": 2840
+    },
+    {
+        "league": 4,
+        "region": "kr",
+        "frame_max": 3200
+    },
+    {
+        "league": 5,
+        "region": "kr",
+        "frame_max": 4320
+    },
+    {
+        "league": 6,
+        "region": "kr",
+        "frame_max": 4976
+    }
+]

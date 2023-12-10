@@ -1,0 +1,1026 @@
+[
+    {
+        "name": "Åland Islands",
+        "flag_url": "/country_flags/ax.svg"
+    },
+    {
+        "name": "Afghanistan",
+        "flag_url": "/country_flags/af.svg"
+    },
+    {
+        "name": "Albania",
+        "flag_url": "/country_flags/al.svg"
+    },
+    {
+        "name": "Algeria",
+        "flag_url": "/country_flags/dz.svg"
+    },
+    {
+        "name": "American Samoa",
+        "flag_url": "/country_flags/as.svg"
+    },
+    {
+        "name": "Andorra",
+        "flag_url": "/country_flags/ad.svg"
+    },
+    {
+        "name": "Angola",
+        "flag_url": "/country_flags/ao.svg"
+    },
+    {
+        "name": "Anguilla",
+        "flag_url": "/country_flags/ai.svg"
+    },
+    {
+        "name": "Antarctica",
+        "flag_url": "/country_flags/aq.svg"
+    },
+    {
+        "name": "Antigua and Barbuda",
+        "flag_url": "/country_flags/ag.svg"
+    },
+    {
+        "name": "Argentina",
+        "flag_url": "/country_flags/ar.svg"
+    },
+    {
+        "name": "Armenia",
+        "flag_url": "/country_flags/am.svg"
+    },
+    {
+        "name": "Aruba",
+        "flag_url": "/country_flags/aw.svg"
+    },
+    {
+        "name": "Australia",
+        "flag_url": "/country_flags/au.svg"
+    },
+    {
+        "name": "Austria",
+        "flag_url": "/country_flags/at.svg"
+    },
+    {
+        "name": "Azerbaijan",
+        "flag_url": "/country_flags/az.svg"
+    },
+    {
+        "name": "Bahamas",
+        "flag_url": "/country_flags/bs.svg"
+    },
+    {
+        "name": "Bahrain",
+        "flag_url": "/country_flags/bh.svg"
+    },
+    {
+        "name": "Bangladesh",
+        "flag_url": "/country_flags/bd.svg"
+    },
+    {
+        "name": "Barbados",
+        "flag_url": "/country_flags/bb.svg"
+    },
+    {
+        "name": "Belarus",
+        "flag_url": "/country_flags/by.svg"
+    },
+    {
+        "name": "Belgium",
+        "flag_url": "/country_flags/be.svg"
+    },
+    {
+        "name": "Belize",
+        "flag_url": "/country_flags/bz.svg"
+    },
+    {
+        "name": "Benin",
+        "flag_url": "/country_flags/bj.svg"
+    },
+    {
+        "name": "Bermuda",
+        "flag_url": "/country_flags/bm.svg"
+    },
+    {
+        "name": "Bhutan",
+        "flag_url": "/country_flags/bt.svg"
+    },
+    {
+        "name": "Bolivia",
+        "flag_url": "/country_flags/bo.svg"
+    },
+    {
+        "name": "Bonaire, Sint Eustatius, and Saba",
+        "flag_url": "/country_flags/bq.svg"
+    },
+    {
+        "name": "Bosnia and Herzegovina",
+        "flag_url": "/country_flags/ba.svg"
+    },
+    {
+        "name": "Botswana",
+        "flag_url": "/country_flags/bw.svg"
+    },
+    {
+        "name": "Bouvet Island",
+        "flag_url": "/country_flags/bv.svg"
+    },
+    {
+        "name": "Brazil",
+        "flag_url": "/country_flags/br.svg"
+    },
+    {
+        "name": "British Indian Ocean Territory",
+        "flag_url": "/country_flags/io.svg"
+    },
+    {
+        "name": "British Virgin Islands",
+        "flag_url": "/country_flags/vg.svg"
+    },
+    {
+        "name": "Brunei",
+        "flag_url": "/country_flags/bn.svg"
+    },
+    {
+        "name": "Bulgaria",
+        "flag_url": "/country_flags/bg.svg"
+    },
+    {
+        "name": "Burkina Faso",
+        "flag_url": "/country_flags/bf.svg"
+    },
+    {
+        "name": "Burundi",
+        "flag_url": "/country_flags/bi.svg"
+    },
+    {
+        "name": "Cabo Verde",
+        "flag_url": "/country_flags/cv.svg"
+    },
+    {
+        "name": "Cambodia",
+        "flag_url": "/country_flags/kh.svg"
+    },
+    {
+        "name": "Cameroon",
+        "flag_url": "/country_flags/cm.svg"
+    },
+    {
+        "name": "Canada",
+        "flag_url": "/country_flags/ca.svg"
+    },
+    {
+        "name": "Cayman Islands",
+        "flag_url": "/country_flags/ky.svg"
+    },
+    {
+        "name": "Central African Republic",
+        "flag_url": "/country_flags/cf.svg"
+    },
+    {
+        "name": "Chad",
+        "flag_url": "/country_flags/td.svg"
+    },
+    {
+        "name": "Chile",
+        "flag_url": "/country_flags/cl.svg"
+    },
+    {
+        "name": "China",
+        "flag_url": "/country_flags/cn.svg"
+    },
+    {
+        "name": "Christmas Island",
+        "flag_url": "/country_flags/cx.svg"
+    },
+    {
+        "name": "Cocos (Keeling) Islands",
+        "flag_url": "/country_flags/cc.svg"
+    },
+    {
+        "name": "Islands",
+        "flag_url": "/country_flags/cc.svg"
+    },
+    {
+        "name": "Colombia",
+        "flag_url": "/country_flags/co.svg"
+    },
+    {
+        "name": "Comoros",
+        "flag_url": "/country_flags/km.svg"
+    },
+    {
+        "name": "Cook Islands",
+        "flag_url": "/country_flags/ck.svg"
+    },
+    {
+        "name": "Costa Rica",
+        "flag_url": "/country_flags/cr.svg"
+    },
+    {
+        "name": "Croatia",
+        "flag_url": "/country_flags/hr.svg"
+    },
+    {
+        "name": "Cuba",
+        "flag_url": "/country_flags/cu.svg"
+    },
+    {
+        "name": "Curaçao",
+        "flag_url": "/country_flags/cw.svg"
+    },
+    {
+        "name": "Cyprus",
+        "flag_url": "/country_flags/cy.svg"
+    },
+    {
+        "name": "Czech Republic",
+        "flag_url": "/country_flags/cz.svg"
+    },
+    {
+        "name": "Democratic Republic of the Congo",
+        "flag_url": "/country_flags/cd.svg"
+    },
+    {
+        "name": "Denmark",
+        "flag_url": "/country_flags/dk.svg"
+    },
+    {
+        "name": "Djibouti",
+        "flag_url": "/country_flags/dj.svg"
+    },
+    {
+        "name": "Dominica",
+        "flag_url": "/country_flags/dm.svg"
+    },
+    {
+        "name": "Dominican Republic",
+        "flag_url": "/country_flags/do.svg"
+    },
+    {
+        "name": "East Timor",
+        "flag_url": "/country_flags/tl.svg"
+    },
+    {
+        "name": "Ecuador",
+        "flag_url": "/country_flags/ec.svg"
+    },
+    {
+        "name": "Egypt",
+        "flag_url": "/country_flags/eg.svg"
+    },
+    {
+        "name": "El Salvador",
+        "flag_url": "/country_flags/sv.svg"
+    },
+    {
+        "name": "England (United Kingdom)",
+        "flag_url": "/country_flags/gb-eng.svg"
+    },
+    {
+        "name": "Equatorial Guinea",
+        "flag_url": "/country_flags/gq.svg"
+    },
+    {
+        "name": "Eritrea",
+        "flag_url": "/country_flags/er.svg"
+    },
+    {
+        "name": "Estonia",
+        "flag_url": "/country_flags/ee.svg"
+    },
+    {
+        "name": "Eswatini",
+        "flag_url": "/country_flags/sz.svg"
+    },
+    {
+        "name": "Ethiopia",
+        "flag_url": "/country_flags/et.svg"
+    },
+    {
+        "name": "European Union",
+        "flag_url": "/country_flags/eu.svg"
+    },
+    {
+        "name": "Falkland Islands",
+        "flag_url": "/country_flags/fk.svg"
+    },
+    {
+        "name": "Faroe Islands",
+        "flag_url": "/country_flags/fo.svg"
+    },
+    {
+        "name": "Fiji",
+        "flag_url": "/country_flags/fj.svg"
+    },
+    {
+        "name": "Finland",
+        "flag_url": "/country_flags/fi.svg"
+    },
+    {
+        "name": "France",
+        "flag_url": "/country_flags/fr.svg"
+    },
+    {
+        "name": "French Guiana",
+        "flag_url": "/country_flags/gf.svg"
+    },
+    {
+        "name": "French Polynesia",
+        "flag_url": "/country_flags/pf.svg"
+    },
+    {
+        "name": "French Southern and Antarctic Lands",
+        "flag_url": "/country_flags/tf.svg"
+    },
+    {
+        "name": "Gabon",
+        "flag_url": "/country_flags/ga.svg"
+    },
+    {
+        "name": "Gambia",
+        "flag_url": "/country_flags/gm.svg"
+    },
+    {
+        "name": "Georgia",
+        "flag_url": "/country_flags/ge.svg"
+    },
+    {
+        "name": "Germany",
+        "flag_url": "/country_flags/de.svg"
+    },
+    {
+        "name": "Ghana",
+        "flag_url": "/country_flags/gh.svg"
+    },
+    {
+        "name": "Gibraltar",
+        "flag_url": "/country_flags/gi.svg"
+    },
+    {
+        "name": "Greece",
+        "flag_url": "/country_flags/gr.svg"
+    },
+    {
+        "name": "Greenland",
+        "flag_url": "/country_flags/gl.svg"
+    },
+    {
+        "name": "Grenada",
+        "flag_url": "/country_flags/gd.svg"
+    },
+    {
+        "name": "Guadeloupe",
+        "flag_url": "/country_flags/gp.svg"
+    },
+    {
+        "name": "Guam",
+        "flag_url": "/country_flags/gu.svg"
+    },
+    {
+        "name": "Guatemala",
+        "flag_url": "/country_flags/gt.svg"
+    },
+    {
+        "name": "Guernsey",
+        "flag_url": "/country_flags/gg.svg"
+    },
+    {
+        "name": "Guinea",
+        "flag_url": "/country_flags/gn.svg"
+    },
+    {
+        "name": "Guinea-Bissau",
+        "flag_url": "/country_flags/gw.svg"
+    },
+    {
+        "name": "Guyana",
+        "flag_url": "/country_flags/gy.svg"
+    },
+    {
+        "name": "Haiti",
+        "flag_url": "/country_flags/ht.svg"
+    },
+    {
+        "name": "Heard Island and McDonald Islands",
+        "flag_url": "/country_flags/hm.svg"
+    },
+    {
+        "name": "Honduras",
+        "flag_url": "/country_flags/hn.svg"
+    },
+    {
+        "name": "Hong Kong",
+        "flag_url": "/country_flags/hk.svg"
+    },
+    {
+        "name": "Hungary",
+        "flag_url": "/country_flags/hu.svg"
+    },
+    {
+        "name": "Iceland",
+        "flag_url": "/country_flags/is.svg"
+    },
+    {
+        "name": "India",
+        "flag_url": "/country_flags/in.svg"
+    },
+    {
+        "name": "Indonesia",
+        "flag_url": "/country_flags/id.svg"
+    },
+    {
+        "name": "Iran",
+        "flag_url": "/country_flags/ir.svg"
+    },
+    {
+        "name": "Iraq",
+        "flag_url": "/country_flags/iq.svg"
+    },
+    {
+        "name": "Ireland",
+        "flag_url": "/country_flags/ie.svg"
+    },
+    {
+        "name": "Isle of Man",
+        "flag_url": "/country_flags/im.svg"
+    },
+    {
+        "name": "Israel",
+        "flag_url": "/country_flags/il.svg"
+    },
+    {
+        "name": "Italy",
+        "flag_url": "/country_flags/it.svg"
+    },
+    {
+        "name": "Ivory Coast",
+        "flag_url": "/country_flags/ci.svg"
+    },
+    {
+        "name": "Jamaica",
+        "flag_url": "/country_flags/jm.svg"
+    },
+    {
+        "name": "Japan",
+        "flag_url": "/country_flags/jp.svg"
+    },
+    {
+        "name": "Jersey",
+        "flag_url": "/country_flags/je.svg"
+    },
+    {
+        "name": "Jordan",
+        "flag_url": "/country_flags/jo.svg"
+    },
+    {
+        "name": "Kazakhstan",
+        "flag_url": "/country_flags/kz.svg"
+    },
+    {
+        "name": "Kenya",
+        "flag_url": "/country_flags/ke.svg"
+    },
+    {
+        "name": "Kiribati",
+        "flag_url": "/country_flags/ki.svg"
+    },
+    {
+        "name": "Kosovo",
+        "flag_url": "/country_flags/xk.svg"
+    },
+    {
+        "name": "Kuwait",
+        "flag_url": "/country_flags/kw.svg"
+    },
+    {
+        "name": "Kyrgyzstan",
+        "flag_url": "/country_flags/kg.svg"
+    },
+    {
+        "name": "Laos",
+        "flag_url": "/country_flags/la.svg"
+    },
+    {
+        "name": "Latvia",
+        "flag_url": "/country_flags/lv.svg"
+    },
+    {
+        "name": "Lebanon",
+        "flag_url": "/country_flags/lb.svg"
+    },
+    {
+        "name": "Lesotho",
+        "flag_url": "/country_flags/ls.svg"
+    },
+    {
+        "name": "Liberia",
+        "flag_url": "/country_flags/lr.svg"
+    },
+    {
+        "name": "Libya",
+        "flag_url": "/country_flags/ly.svg"
+    },
+    {
+        "name": "Liechtenstein",
+        "flag_url": "/country_flags/li.svg"
+    },
+    {
+        "name": "Lithuania",
+        "flag_url": "/country_flags/lt.svg"
+    },
+    {
+        "name": "Luxembourg",
+        "flag_url": "/country_flags/lu.svg"
+    },
+    {
+        "name": "Macao",
+        "flag_url": "/country_flags/mo.svg"
+    },
+    {
+        "name": "Madagascar",
+        "flag_url": "/country_flags/mg.svg"
+    },
+    {
+        "name": "Malawi",
+        "flag_url": "/country_flags/mw.svg"
+    },
+    {
+        "name": "Malaysia",
+        "flag_url": "/country_flags/my.svg"
+    },
+    {
+        "name": "Maldives",
+        "flag_url": "/country_flags/mv.svg"
+    },
+    {
+        "name": "Mali",
+        "flag_url": "/country_flags/ml.svg"
+    },
+    {
+        "name": "Malta",
+        "flag_url": "/country_flags/mt.svg"
+    },
+    {
+        "name": "Marshall Islands",
+        "flag_url": "/country_flags/mh.svg"
+    },
+    {
+        "name": "Martinique",
+        "flag_url": "/country_flags/mq.svg"
+    },
+    {
+        "name": "Mauritania",
+        "flag_url": "/country_flags/mr.svg"
+    },
+    {
+        "name": "Mauritius",
+        "flag_url": "/country_flags/mu.svg"
+    },
+    {
+        "name": "Mayotte",
+        "flag_url": "/country_flags/yt.svg"
+    },
+    {
+        "name": "Mexico",
+        "flag_url": "/country_flags/mx.svg"
+    },
+    {
+        "name": "Micronesia",
+        "flag_url": "/country_flags/fm.svg"
+    },
+    {
+        "name": "Moldova",
+        "flag_url": "/country_flags/md.svg"
+    },
+    {
+        "name": "Monaco",
+        "flag_url": "/country_flags/mc.svg"
+    },
+    {
+        "name": "Mongolia",
+        "flag_url": "/country_flags/mn.svg"
+    },
+    {
+        "name": "Montenegro",
+        "flag_url": "/country_flags/me.svg"
+    },
+    {
+        "name": "Montserrat",
+        "flag_url": "/country_flags/ms.svg"
+    },
+    {
+        "name": "Morocco",
+        "flag_url": "/country_flags/ma.svg"
+    },
+    {
+        "name": "Mozambique",
+        "flag_url": "/country_flags/mz.svg"
+    },
+    {
+        "name": "Myanmar",
+        "flag_url": "/country_flags/mm.svg"
+    },
+    {
+        "name": "Namibia",
+        "flag_url": "/country_flags/na.svg"
+    },
+    {
+        "name": "Nauru",
+        "flag_url": "/country_flags/nr.svg"
+    },
+    {
+        "name": "Nepal",
+        "flag_url": "/country_flags/np.svg"
+    },
+    {
+        "name": "Netherlands",
+        "flag_url": "/country_flags/nl.svg"
+    },
+    {
+        "name": "New Caledonia",
+        "flag_url": "/country_flags/nc.svg"
+    },
+    {
+        "name": "New Zealand",
+        "flag_url": "/country_flags/nz.svg"
+    },
+    {
+        "name": "Nicaragua",
+        "flag_url": "/country_flags/ni.svg"
+    },
+    {
+        "name": "Niger",
+        "flag_url": "/country_flags/ne.svg"
+    },
+    {
+        "name": "Nigeria",
+        "flag_url": "/country_flags/ng.svg"
+    },
+    {
+        "name": "Niue",
+        "flag_url": "/country_flags/nu.svg"
+    },
+    {
+        "name": "Norfolk Island",
+        "flag_url": "/country_flags/nf.svg"
+    },
+    {
+        "name": "North Korea",
+        "flag_url": "/country_flags/kp.svg"
+    },
+    {
+        "name": "North Macedonia",
+        "flag_url": "/country_flags/mk.svg"
+    },
+    {
+        "name": "Northern Ireland (United Kingdom)",
+        "flag_url": "/country_flags/gb-nir.svg"
+    },
+    {
+        "name": "Northern Mariana Islands",
+        "flag_url": "/country_flags/mp.svg"
+    },
+    {
+        "name": "Norway",
+        "flag_url": "/country_flags/no.svg"
+    },
+    {
+        "name": "Oman",
+        "flag_url": "/country_flags/om.svg"
+    },
+    {
+        "name": "Pakistan",
+        "flag_url": "/country_flags/pk.svg"
+    },
+    {
+        "name": "Palau",
+        "flag_url": "/country_flags/pw.svg"
+    },
+    {
+        "name": "Palestine",
+        "flag_url": "/country_flags/ps.svg"
+    },
+    {
+        "name": "Panama",
+        "flag_url": "/country_flags/pa.svg"
+    },
+    {
+        "name": "Papua New Guinea",
+        "flag_url": "/country_flags/pg.svg"
+    },
+    {
+        "name": "Paraguay",
+        "flag_url": "/country_flags/py.svg"
+    },
+    {
+        "name": "Peru",
+        "flag_url": "/country_flags/pe.svg"
+    },
+    {
+        "name": "Philippines",
+        "flag_url": "/country_flags/ph.svg"
+    },
+    {
+        "name": "Pitcairn Islands",
+        "flag_url": "/country_flags/pn.svg"
+    },
+    {
+        "name": "Poland",
+        "flag_url": "/country_flags/pl.svg"
+    },
+    {
+        "name": "Portugal",
+        "flag_url": "/country_flags/pt.svg"
+    },
+    {
+        "name": "Puerto Rico",
+        "flag_url": "/country_flags/pr.svg"
+    },
+    {
+        "name": "Qatar",
+        "flag_url": "/country_flags/qa.svg"
+    },
+    {
+        "name": "Republic of Kongo",
+        "flag_url": "/country_flags/cg.svg"
+    },
+    {
+        "name": "Réunion",
+        "flag_url": "/country_flags/re.svg"
+    },
+    {
+        "name": "Romania",
+        "flag_url": "/country_flags/ro.svg"
+    },
+    {
+        "name": "Russia",
+        "flag_url": "/country_flags/ru.svg"
+    },
+    {
+        "name": "Rwanda",
+        "flag_url": "/country_flags/rw.svg"
+    },
+    {
+        "name": "Saint Barthélemy",
+        "flag_url": "/country_flags/bl.svg"
+    },
+    {
+        "name": "Saint Helena, Ascension and Tristan da Cunha",
+        "flag_url": "/country_flags/sh.svg"
+    },
+    {
+        "name": "Saint Kitts and Nevis",
+        "flag_url": "/country_flags/kn.svg"
+    },
+    {
+        "name": "Saint Lucia",
+        "flag_url": "/country_flags/lc.svg"
+    },
+    {
+        "name": "Saint Martin(French part)",
+        "flag_url": "/country_flags/mf.svg"
+    },
+    {
+        "name": "Saint Pierre and Miquelon",
+        "flag_url": "/country_flags/pm.svg"
+    },
+    {
+        "name": "Saint Vincent and the Grenadines",
+        "flag_url": "/country_flags/vc.svg"
+    },
+    {
+        "name": "Samoa",
+        "flag_url": "/country_flags/ws.svg"
+    },
+    {
+        "name": "San Marino",
+        "flag_url": "/country_flags/sm.svg"
+    },
+    {
+        "name": "Sao Tome and Principe",
+        "flag_url": "/country_flags/st.svg"
+    },
+    {
+        "name": "Saudi Arabia",
+        "flag_url": "/country_flags/sa.svg"
+    },
+    {
+        "name": "Scotland (United Kingdom)",
+        "flag_url": "/country_flags/gb-sct.svg"
+    },
+    {
+        "name": "Senegal",
+        "flag_url": "/country_flags/sn.svg"
+    },
+    {
+        "name": "Serbia",
+        "flag_url": "/country_flags/rs.svg"
+    },
+    {
+        "name": "Seychelles",
+        "flag_url": "/country_flags/sc.svg"
+    },
+    {
+        "name": "Sierra Leone",
+        "flag_url": "/country_flags/sl.svg"
+    },
+    {
+        "name": "Singapore",
+        "flag_url": "/country_flags/sg.svg"
+    },
+    {
+        "name": "Sint Maarten(Dutch part)",
+        "flag_url": "/country_flags/sx.svg"
+    },
+    {
+        "name": "Slovakia",
+        "flag_url": "/country_flags/sk.svg"
+    },
+    {
+        "name": "Slovenia",
+        "flag_url": "/country_flags/si.svg"
+    },
+    {
+        "name": "Solomon Islands",
+        "flag_url": "/country_flags/sb.svg"
+    },
+    {
+        "name": "Somalia",
+        "flag_url": "/country_flags/so.svg"
+    },
+    {
+        "name": "South Africa",
+        "flag_url": "/country_flags/za.svg"
+    },
+    {
+        "name": "South Georgia and the South Sandwich Islands",
+        "flag_url": "/country_flags/gs.svg"
+    },
+    {
+        "name": "South Korea",
+        "flag_url": "/country_flags/kr.svg"
+    },
+    {
+        "name": "South Sudan",
+        "flag_url": "/country_flags/ss.svg"
+    },
+    {
+        "name": "Spain",
+        "flag_url": "/country_flags/es.svg"
+    },
+    {
+        "name": "Sri Lanka",
+        "flag_url": "/country_flags/lk.svg"
+    },
+    {
+        "name": "Sudan",
+        "flag_url": "/country_flags/sd.svg"
+    },
+    {
+        "name": "Suriname",
+        "flag_url": "/country_flags/sr.svg"
+    },
+    {
+        "name": "Svalbard and Jan Mayen",
+        "flag_url": "/country_flags/sj.svg"
+    },
+    {
+        "name": "Sweden",
+        "flag_url": "/country_flags/se.svg"
+    },
+    {
+        "name": "Switzerland",
+        "flag_url": "/country_flags/ch.svg"
+    },
+    {
+        "name": "Syria",
+        "flag_url": "/country_flags/sy.svg"
+    },
+    {
+        "name": "Taiwan",
+        "flag_url": "/country_flags/tw.svg"
+    },
+    {
+        "name": "Tajikistan",
+        "flag_url": "/country_flags/tj.svg"
+    },
+    {
+        "name": "Tanzania",
+        "flag_url": "/country_flags/tz.svg"
+    },
+    {
+        "name": "Thailand",
+        "flag_url": "/country_flags/th.svg"
+    },
+    {
+        "name": "Togo",
+        "flag_url": "/country_flags/tg.svg"
+    },
+    {
+        "name": "Tokelau",
+        "flag_url": "/country_flags/tk.svg"
+    },
+    {
+        "name": "Tonga",
+        "flag_url": "/country_flags/to.svg"
+    },
+    {
+        "name": "Trinidad and Tobago",
+        "flag_url": "/country_flags/tt.svg"
+    },
+    {
+        "name": "Tunisia",
+        "flag_url": "/country_flags/tn.svg"
+    },
+    {
+        "name": "Turkey",
+        "flag_url": "/country_flags/tr.svg"
+    },
+    {
+        "name": "Turkmenistan",
+        "flag_url": "/country_flags/tm.svg"
+    },
+    {
+        "name": "Turks and Caicos Islands",
+        "flag_url": "/country_flags/tc.svg"
+    },
+    {
+        "name": "Tuvalu",
+        "flag_url": "/country_flags/tv.svg"
+    },
+    {
+        "name": "Uganda",
+        "flag_url": "/country_flags/ug.svg"
+    },
+    {
+        "name": "Ukraine",
+        "flag_url": "/country_flags/ua.svg"
+    },
+    {
+        "name": "United Arab Emirates",
+        "flag_url": "/country_flags/ae.svg"
+    },
+    {
+        "name": "United Kingdom",
+        "flag_url": "/country_flags/gb.svg"
+    },
+    {
+        "name": "United States",
+        "flag_url": "/country_flags/us.svg"
+    },
+    {
+        "name": "United States Minor Outlying Islands",
+        "flag_url": "/country_flags/um.svg"
+    },
+    {
+        "name": "Uruguay",
+        "flag_url": "/country_flags/uy.svg"
+    },
+    {
+        "name": "Uzbekistan",
+        "flag_url": "/country_flags/uz.svg"
+    },
+    {
+        "name": "Vanuatu",
+        "flag_url": "/country_flags/vu.svg"
+    },
+    {
+        "name": "Vatican City",
+        "flag_url": "/country_flags/va.svg"
+    },
+    {
+        "name": "Venezuela",
+        "flag_url": "/country_flags/ve.svg"
+    },
+    {
+        "name": "Vietnam",
+        "flag_url": "/country_flags/vn.svg"
+    },
+    {
+        "name": "Virgin Islands, U.S.",
+        "flag_url": "/country_flags/vi.svg"
+    },
+    {
+        "name": "Wallis and Futuna",
+        "flag_url": "/country_flags/wf.svg"
+    },
+    {
+        "name": "Wales",
+        "flag_url": "/country_flags/gb-wls.svg"
+    },
+    {
+        "name": "Western Sahara",
+        "flag_url": "/country_flags/eh.svg"
+    },
+    {
+        "name": "Yemen",
+        "flag_url": "/country_flags/ye.svg"
+    },
+    {
+        "name": "Zambia",
+        "flag_url": "/country_flags/zm.svg"
+    },
+    {
+        "name": "Zimbabwe",
+        "flag_url": "/country_flags/zw.svg"
+    }
+]
