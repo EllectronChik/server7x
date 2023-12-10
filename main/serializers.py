@@ -89,6 +89,12 @@ class RegionsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class groupStageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupStage
+        fields = ['id', 'groupMark', 'teams']
+
+
 class PlayerToTournamentSerializer(serializers.ModelSerializer):
     season = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
