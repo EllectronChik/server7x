@@ -111,6 +111,16 @@ class Season(models.Model):
 
     def __str__(self):
         return str(self.number)
+    
+
+class GroupStage(models.Model):
+    groupMark = models.CharField(max_length=100)
+    season = models.ForeignKey('Season', on_delete=models.PROTECT)
+    teams = models.ManyToManyField('Team')
+
+    def __str__(self):
+        return str(self.season) + str(self.groupMark)
+
 
 class Player(models.Model):
     username = models.CharField(max_length=100)
