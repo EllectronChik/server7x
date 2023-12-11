@@ -160,6 +160,14 @@ class SeasonsViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+    
+    def perform_create(self, serializer):
+        try:
+            season = Season.objects.get(is_finished = False)
+            if season:
+                raise exceptions.PermissionDenied("Season is already created")
+        except Season.DoesNotExist:
+            serializer.save()
 
 
 
@@ -668,21 +676,12 @@ def get_last_season_number(request):
 
 
 @api_view(['GET'])
-# @permission_classes([permissions.IsAdminUser])
+@permission_classes([permissions.IsAdminUser])
 def randomizeGroups(request):
-    season = request.query_params.get('Season')
     try:
-        int(season)
-    except:
-        return Response({"error": "Season is required as integer"}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        season = Season.objects.get(number=season)
+        season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
-    if season is None:
-        return Response({"error": "Season is required"}, status=status.HTTP_400_BAD_REQUEST)
-    if season.is_finished:
-        return Response({"error": "Season is already finished"}, status=status.HTTP_400_BAD_REQUEST)
     group_cnt = request.query_params.get('groupCnt')
 
     if group_cnt is None:
@@ -698,7 +697,7 @@ def randomizeGroups(request):
         groupInfo = {
             'id': groupStage.id,
             'groupMark': groupStage.groupMark,
-            'teams': [team.id for team in groupStage.teams.all()]
+            'teams': [team for team in groupStage.teams.all()]
         }
         responseData.append(groupInfo)
 
@@ -706,27 +705,48 @@ def randomizeGroups(request):
 
 
 @api_view(['GET'])
-def getRegistred(request):
-    season = request.query_params.get('Season')
+@permission_classes([IsAuthenticated])
+def getPlayerToCurrentTournament(request):
+    season = Season.objects.get(is_finished=False)
+    user = request.user 
+    if season:
+        playerToTournaments = PlayerToTournament.objects.filter(Season=season, user=user)
+        serializer = PlayerToTournamentSerializer(playerToTournaments, many=True)
+        return Response(serializer.data)
+    return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def registredToCurrentSeasonTeams(request):
     try:
-        int(season)
-    except:
-        return Response({"error": "Season is required as integer"}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        season = Season.objects.get(number=season)
+        season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
-        return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
-    if season is None:
-        return Response({"error": "Season is required"}, status=status.HTTP_400_BAD_REQUEST)
-    if season.is_finished:
-        return Response({"error": "Season is already finished"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
     tournamentRegistrations = TournamentRegistration.objects.filter(season=season)
     responseData = []
     for tournamentRegistration in tournamentRegistrations:
         team_id = tournamentRegistration.team.id
         team = Team.objects.get(id=team_id)
         teamData = TeamsSerializer(team).data
-        responseData.append({
-            'team': teamData,
-        })
+        responseData.append(teamData)
+    return Response(responseData)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def groupsToCurrentSeason(request):
+    try:
+        season = Season.objects.get(is_finished=False)
+    except Season.DoesNotExist:
+        return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
+    groupStages = GroupStage.objects.filter(season=season)
+    responseData = []
+    for groupStage in groupStages:
+        groupInfo = {
+            'id': groupStage.id,
+            'groupMark': groupStage.groupMark,
+            'teams': [TeamsSerializer(team).data for team in groupStage.teams.all()]
+        }
+        responseData.append(groupInfo)
     return Response(responseData)
