@@ -100,7 +100,7 @@ def get_new_access_token():
     
 def get_blizzard_data(region, realm, character_id):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
-    api_url = f'https://eu.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
+    api_url = f'https://us.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
     response = requests.get(api_url)
     print(api_url)
     print(response)
