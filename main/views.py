@@ -675,17 +675,22 @@ def get_last_season_number(request):
     return Response(season_number)
 
 
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([permissions.IsAdminUser])
 def randomizeGroups(request):
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
-    group_cnt = request.query_params.get('groupCnt')
-
+    group_cnt = request.data.get('groupCnt')
     if group_cnt is None:
         return Response({"error": "groupCnt is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        group_cnt = int(group_cnt)
+    except:
+        return Response({"error": "groupCnt must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+    if int(group_cnt) <= 0:
+        return Response({"error": "groupCnt must be greater than 0"}, status=status.HTTP_400_BAD_REQUEST)
     
     tournamentRegistrations = TournamentRegistration.objects.filter(season=season)
     distribute_teams_to_groups(list(tournamentRegistrations), group_cnt)   
@@ -697,7 +702,7 @@ def randomizeGroups(request):
         groupInfo = {
             'id': groupStage.id,
             'groupMark': groupStage.groupMark,
-            'teams': [team for team in groupStage.teams.all()]
+            'teams': [TeamsSerializer(team).data for team in groupStage.teams.all()]
         }
         responseData.append(groupInfo)
 
@@ -750,3 +755,55 @@ def groupsToCurrentSeason(request):
         }
         responseData.append(groupInfo)
     return Response(responseData)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+def postTeamToGroup(request):
+    groupStageMark = request.data.get('groupStageMark')
+    teamId = request.data.get('teamId')
+    if groupStageMark is None and teamId is None:
+        return Response({"error": "groupStageMark and teamId are required"}, status=status.HTTP_400_BAD_REQUEST)
+    if groupStageMark is None:
+        return Response({"error": "groupStageMark is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if teamId is None:
+        return Response({"error": "teamId is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        team = TournamentRegistration.objects.get(team_id=teamId)
+    except TournamentRegistration.DoesNotExist:
+        return Response({"error": "Team not found"}, status=status.HTTP_404_NOT_FOUND)
+    season = Season.objects.get(is_finished=False)
+    try:
+        groupStage = GroupStage.objects.get(season=season, groupMark=groupStageMark)
+    except GroupStage.DoesNotExist:
+        groupStage = GroupStage.objects.create(season=season, groupMark=groupStageMark)
+
+    try:
+        otherGroup = GroupStage.objects.exclude(id=groupStage.id).get(season=season, teams=team.team)
+        otherGroup.teams.remove(team.team)
+        otherGroup.save()
+        if otherGroup.teams.count() == 0:
+            otherGroup.delete()
+    except GroupStage.DoesNotExist:
+        pass
+    groupStage.teams.add(team.team)
+    groupStage.save()
+    groupStageData = groupStageSerializer(groupStage).data
+    return Response(groupStageData)
+
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAdminUser])
+def deleteTeamFromGroup(request):
+    teamId = request.data.get('teamId')
+    if teamId is None:
+        return Response({"error": "teamId is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        team = Team.objects.get(id=teamId)
+    except Team.DoesNotExist:
+        return Response({"error": "Team not found"}, status=status.HTTP_404_NOT_FOUND)
+    season = Season.objects.get(is_finished=False)
+    groupStage = GroupStage.objects.get(season=season, teams=team)
+    groupStage.teams.remove(team)
+    groupStage.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
