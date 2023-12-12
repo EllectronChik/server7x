@@ -44,6 +44,8 @@ urlpatterns = [
     path('api/v1/getPlayerToCurrentTournament/', views.getPlayerToCurrentTournament, name='getPlayerToCurrentTournament'),
     path('api/v1/registredToCurrentSeasonTeams/', views.registredToCurrentSeasonTeams, name='registredToCurrentSeasonTeams'),
     path('api/v1/groupsToCurrentSeason/', views.groupsToCurrentSeason, name='groupsToCurrentSeason'),
+    path('api/v1/postTeamToGroup/', views.postTeamToGroup, name='postTeamToGroup'),
+    path('api/v1/deleteTeamFromGroup/', views.deleteTeamFromGroup, name='deleteTeamFromGroup'),
     path('api/v1/randomizeGroups/', views.randomizeGroups, name='randomizeGroups'),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
