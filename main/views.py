@@ -15,7 +15,8 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 
 from .permissions import *
-from .utils import get_blizzard_data, distribute_teams_to_groups
+from .utils import get_blizzard_data, distribute_teams_to_groups, image_compressor
+
 # Create your views here.
 
 config = configparser.ConfigParser()
@@ -43,8 +44,18 @@ class TeamsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied("You can only create objects with your own id")  
-        else:
-            serializer.save(user=self.request.user)
+        logo = serializer.validated_data.get('logo')
+        if logo:
+            image_file = image_compressor(logo, serializer.validated_data['tag'])
+            serializer.validated_data['logo'] = image_file
+        serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        logo = serializer.validated_data.get('logo')
+        if logo:
+            image_file = image_compressor(logo, Team.objects.get(id=serializer.instance.id).tag)
+            serializer.validated_data['logo'] = image_file
+        serializer.save(user=self.request.user)
 
 
 class PlayersViewSet(viewsets.ModelViewSet):
@@ -136,12 +147,6 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
         return queryset
     
 
-class StagesViewSet(viewsets.ModelViewSet):
-    queryset = Stage.objects.all()
-    serializer_class = StagesSerializer
-    permission_classes = (isAdminOrReadOnly, )
-
-
 class SeasonsViewSet(viewsets.ModelViewSet):
     queryset = Season.objects.all()
     serializer_class = SeasonsSerializer
@@ -181,6 +186,20 @@ class TournamentsViewSet(viewsets.ModelViewSet):
     queryset = Tournament.objects.all()
     serializer_class = TournamentsSerializer
     permission_classes = (isAdminOrReadOnly, )
+
+    def perform_create(self, serializer):
+        try:
+            tournament = Tournament.objects.filter(
+                season = Season.objects.get(is_finished = False), 
+                stage = serializer.validated_data['stage'], 
+                team_one = serializer.validated_data['team_one'], 
+                team_two = serializer.validated_data['team_two'])
+            if (serializer.validated_data['team_one'] == serializer.validated_data['team_two']):
+                raise exceptions.ValidationError("Teams can't be equal")
+            if tournament:
+                raise exceptions.PermissionDenied("Tournament is already created")
+        except Tournament.DoesNotExist:
+            serializer.save()
 
 
 class RegionsViewSet(viewsets.ModelViewSet):
