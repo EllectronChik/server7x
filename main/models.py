@@ -56,7 +56,7 @@ class Tournament(models.Model):
                                  related_name='team_two',)
     match_start_time = models.DateTimeField()
     season = models.ForeignKey('Season', on_delete=models.PROTECT)
-    stage = models.ForeignKey('Stage', on_delete=models.PROTECT)
+    stage = models.IntegerField()
     is_finished = models.BooleanField()
     
     def __str__(self):
@@ -86,13 +86,6 @@ class Schedule(models.Model):
 
     def __str__(self):
         return str(self.date_time)
-
-
-class Stage(models.Model):
-    name = models.CharField(max_length=100)
-
-    def __str__(self):
-        return self.name
     
 
 class TournamentRegistration(models.Model):
@@ -141,7 +134,7 @@ class Player(models.Model):
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
     tag = models.CharField(max_length=10)
-    logo = models.FileField(upload_to='teams/logo/', null=True)
+    logo = models.ImageField(upload_to='teams/logo/', max_length=255)
     region = models.ForeignKey('Region', on_delete=models.PROTECT)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
 
