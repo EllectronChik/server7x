@@ -4,6 +4,9 @@ import random
 import requests
 from rest_framework.response import Response
 from main.models import GroupStage, LeagueFrame
+from PIL import Image
+from io import BytesIO
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 config = configparser.ConfigParser()
@@ -138,3 +141,29 @@ def distribute_teams_to_groups(teams, num_groups):
                 group_stage.teams.add(team)
         except IndexError:
                 break
+    cnt = 0
+    for remaining_team in teams:
+        group_stage, created = GroupStage.objects.get_or_create(
+            season = remaining_team.season, 
+            groupMark = chr(ord('A') + cnt)
+        )
+        group_stage.teams.add(remaining_team.team)
+        cnt += 1
+
+def image_compressor(image, team_name=None):
+    
+    max_size = (720, 720)
+    imagePl = Image.open(image)
+    imagePl.thumbnail(max_size, Image.Resampling.LANCZOS)
+    image_buffer = BytesIO()
+    imagePl.save(image_buffer, format='PNG')
+    if team_name:
+        name = f'{team_name}.png'
+    else:
+        name = image.name
+    if len(name) > 100:
+        name = image.name[:90] + '.png'
+    image_file = InMemoryUploadedFile(
+        image_buffer, None, name, 'image/png', image_buffer.tell(), None
+    )
+    return image_file
