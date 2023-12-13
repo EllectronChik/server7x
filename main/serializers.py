@@ -52,9 +52,23 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
     
 class TournamentsSerializer(serializers.ModelSerializer):
+    season = serializers.SerializerMethodField(required=False)
+    is_finished = serializers.SerializerMethodField(required=False)
     class Meta:
         model = Tournament
-        fields = '__all__'
+        fields = ['season', 'match_start_time', 'is_finished', 'team_one', 'team_two', 'stage']
+
+    def get_season(self, obj):
+        return obj.season.number
+    
+    def get_is_finished(self, obj):
+        return obj.is_finished
+
+    def create(self, validated_data):
+        season = Season.objects.get(is_finished=False)
+        is_finished = False
+        tournament = Tournament.objects.create(season=season, is_finished=is_finished, **validated_data)
+        return tournament
 
 
 class UserDevicesSerializer(serializers.ModelSerializer):
@@ -76,11 +90,6 @@ class TeamResourcesSerializer(serializers.ModelSerializer):
         if not re.match(protocol_pattern, value) and not re.match(not_protocol_pattern, value):
             raise serializers.ValidationError('Invalid URL')
         return value
-
-class StagesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Stage
-        fields = '__all__'
 
 
 class RegionsSerializer(serializers.ModelSerializer):
