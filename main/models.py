@@ -57,6 +57,7 @@ class Tournament(models.Model):
     match_start_time = models.DateTimeField()
     season = models.ForeignKey('Season', on_delete=models.PROTECT)
     stage = models.IntegerField()
+    group = models.ForeignKey('GroupStage', on_delete=models.CASCADE, null=True, blank=True, default=None)
     is_finished = models.BooleanField()
     
     def __str__(self):
