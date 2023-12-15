@@ -4,6 +4,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from main.models import *
 import re
+from django.utils import timezone
 
 
 class TeamsSerializer(serializers.ModelSerializer):
@@ -40,9 +41,13 @@ class ManagerContactsSerializer(serializers.ModelSerializer):
 
 
 class SeasonsSerializer(serializers.ModelSerializer):
+    is_season_started = serializers.SerializerMethodField()
     class Meta:
         model = Season
         fields = '__all__'
+
+    def get_is_season_started(self, obj):
+        return timezone.now() >= obj.start_datetime
 
 
 class ScheduleSerializer(serializers.ModelSerializer):
@@ -56,17 +61,21 @@ class TournamentsSerializer(serializers.ModelSerializer):
     is_finished = serializers.SerializerMethodField(required=False)
     class Meta:
         model = Tournament
-        fields = ['season', 'match_start_time', 'is_finished', 'team_one', 'team_two', 'stage']
+        fields = ['season', 'match_start_time', 'is_finished', 'team_one', 'team_two', 'stage', 'group']
 
     def get_season(self, obj):
-        return obj.season.number
+        if hasattr(obj, 'season'):
+            return obj.season.number
+        return Season.objects.get(is_finished=False).number
     
     def get_is_finished(self, obj):
-        return obj.is_finished
+        if hasattr(obj, 'is_finished'):
+            return obj.is_finished
+        return False
 
     def create(self, validated_data):
-        season = Season.objects.get(is_finished=False)
         is_finished = False
+        season = Season.objects.get(is_finished=False)
         tournament = Tournament.objects.create(season=season, is_finished=is_finished, **validated_data)
         return tournament
 
