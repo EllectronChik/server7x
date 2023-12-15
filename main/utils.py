@@ -121,7 +121,7 @@ def distribute_teams_to_groups(teams, num_groups):
         random.shuffle(teams)
         num_groups = int(num_groups)
     except:
-        return Response({"error": "Invalid number of groups"}, status=400)
+        return {"error": "Invalid number of groups", "status": 400}
     try:
         GroupStage.objects.filter(season=teams[0].season).delete()
     except IndexError:
@@ -149,6 +149,7 @@ def distribute_teams_to_groups(teams, num_groups):
         )
         group_stage.teams.add(remaining_team.team)
         cnt += 1
+    return {"status": 201}
 
 def image_compressor(image, team_name=None):
     
