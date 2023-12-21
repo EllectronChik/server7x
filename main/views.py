@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from djoser.utils import logout_user
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.db.models import Q
 
 from .permissions import *
 from .utils import get_blizzard_data, distribute_teams_to_groups, image_compressor
@@ -251,7 +252,19 @@ class TournamentsViewSet(viewsets.ModelViewSet):
                                 tournament.match_start_time = serializer.validated_data['match_start_time']
                                 tournament.save()
                         except Tournament.DoesNotExist:
-                            serializer.save()
+                            try:
+                                tournament = Tournament.objects.get(
+                                    season = Season.objects.get(is_finished = False),
+                                    group = serializer.validated_data['group'],
+                                    team_one = serializer.validated_data['team_one'],
+                                    team_two = serializer.validated_data['team_two'],
+                                    match_start_time = serializer.validated_data['match_start_time'],
+                                )
+                                if tournament and serializer.validated_data['stage']:
+                                    tournament.stage = serializer.validated_data['stage']
+                                    tournament.save()
+                            except Tournament.DoesNotExist:
+                                serializer.save()
         else:
             serializer.save()
 
@@ -906,4 +919,97 @@ def deleteTournamentsToCurrentSeason(request):
     matches = Tournament.objects.filter(season=season)
     for match in matches:
         match.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getToursByManager(request):
+    user = request.user
+    season = Season.objects.get(is_finished=False)
+    if user.is_anonymous:
+        return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
+    try:
+        manager = Manager.objects.get(user=user)
+    except Manager.DoesNotExist:
+        return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
+    team = manager.team
+    tournaments = Tournament.objects.filter(Q(team_one=team) | Q(team_two=team), season=season)
+    if tournaments.count() == 0:
+        return Response([])
+    tournaments = tournaments.order_by('match_start_time')
+    responseData = []
+    print(tournaments)
+    print('A' * 50)
+    for tournament in tournaments:
+        if tournament.asked_team is not None: 
+            if tournament.asked_team.id != team.id:
+                timeSuggested = tournament.ask_for_other_time
+            else:
+                timeSuggested = None
+        else:
+            timeSuggested = None
+        opponent = tournament.team_two if tournament.team_one == team else tournament.team_one
+        responseData.append({
+            'id': tournament.id,
+            'startTime': tournament.match_start_time,
+            'timeSuggested': timeSuggested,
+            'opponent': TeamsSerializer(opponent).data,
+            'isFinished': tournament.is_finished,
+        })
+    return Response(responseData)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def setTimeSuggestion(request):
+    user = request.user
+    id = request.data.get('id')
+    if id is None:
+        return Response({"error": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if user.is_anonymous:
+        return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
+    try:
+        manager = Manager.objects.get(user=user)
+    except Manager.DoesNotExist:
+        return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
+    team = manager.team
+    try:
+        tournament = Tournament.objects.get(id=id)
+    except Tournament.DoesNotExist:
+        return Response({"error": "Tournament not found"}, status=status.HTTP_404_NOT_FOUND)
+    if tournament.team_one != team and tournament.team_two != team:
+        return Response({"error": "Tournament not found"}, status=status.HTTP_404_NOT_FOUND)
+    tournament.ask_for_other_time = request.data.get('timeSuggestion')
+    tournament.asked_team = team
+    tournament.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def acceptTimeSuggestion(request):
+    user = request.user
+    id = request.data.get('id')
+    if id is None:
+        return Response({"error": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if user.is_anonymous:
+        return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
+    try:
+        manager = Manager.objects.get(user=user)
+    except Manager.DoesNotExist:
+        return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
+    team = manager.team
+    try:
+        tournament = Tournament.objects.get(id=id)
+    except Tournament.DoesNotExist:
+        return Response({"error": "Tournament not found"}, status=status.HTTP_404_NOT_FOUND)
+    if tournament.team_one != team and tournament.team_two != team:
+        return Response({"error": "Tournament not found"}, status=status.HTTP_404_NOT_FOUND)
+    if tournament.ask_for_other_time is None:
+        return Response({"error": "Time suggestion not found"}, status=status.HTTP_404_NOT_FOUND)
+    tournament.match_start_time = tournament.ask_for_other_time
+    tournament.ask_for_other_time = None
+    tournament.asked_team = None
+    tournament.save()
     return Response(status=status.HTTP_204_NO_CONTENT)
