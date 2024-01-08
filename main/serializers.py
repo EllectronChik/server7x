@@ -61,7 +61,7 @@ class TournamentsSerializer(serializers.ModelSerializer):
     is_finished = serializers.SerializerMethodField(required=False)
     class Meta:
         model = Tournament
-        fields = ['season', 'match_start_time', 'is_finished', 'team_one', 'team_two', 'stage', 'group']
+        fields = ['id', 'season', 'match_start_time', 'is_finished', 'team_one', 'team_one_wins' , 'team_two', 'team_two_wins', 'stage', 'group']
 
     def get_season(self, obj):
         if hasattr(obj, 'season'):
