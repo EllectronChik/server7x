@@ -1,6 +1,8 @@
 from django.db import models
 import os
 from django.forms import ValidationError
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 # Create your models here.
@@ -13,7 +15,7 @@ class Match(models.Model):
                                    on_delete=models.PROTECT, 
                                    related_name='player_two', 
                                    null=True, blank=True, default=None)
-    winner = models.BooleanField(null=True, blank=True, default=None)
+    winner = models.ForeignKey('Player', on_delete=models.PROTECT, null=True, blank=True, default=None)
     tournament = models.ForeignKey('Tournament', on_delete=models.PROTECT)
     map = models.CharField(max_length=100)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
@@ -55,6 +57,8 @@ class Tournament(models.Model):
                                  on_delete=models.PROTECT,
                                  related_name='team_two',)
     match_start_time = models.DateTimeField()
+    team_one_wins = models.IntegerField(null=True, blank=True, default=None)
+    team_two_wins = models.IntegerField(null=True, blank=True, default=None)
     ask_for_other_time = models.DateTimeField(null=True, blank=True, default=None)
     asked_team = models.ForeignKey('Team', on_delete=models.PROTECT, null=True, blank=True, default=None)
     season = models.ForeignKey('Season', on_delete=models.PROTECT)
