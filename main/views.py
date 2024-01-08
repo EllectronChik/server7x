@@ -1,5 +1,4 @@
 import configparser
-
 import requests
 
 from main.models import *
@@ -736,10 +735,13 @@ def get_current_tournaments(request):
 
 @api_view(['GET'])
 def get_current_season(request):
-    seasons = Season.objects.filter(is_finished = False)
-    if len(seasons) == 0:
+    try:
+        season = Season.objects.get(is_finished = False)
+    except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
-    season = seasons[0]
+    if season.start_datetime < timezone.now():
+        season.can_register = False
+        season.save()
     serializer = SeasonsSerializer(season)
     return Response(serializer.data)
 
