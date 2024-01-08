@@ -33,10 +33,13 @@ DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = []
 
+# CORS_ALLOW_ALL_ORIGINS = True
+
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,6 +51,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'djoser',
     'main.apps.MainConfig',
+    'channels',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -79,7 +84,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'server7x.wsgi.application'
+# WSGI_APPLICATION = 'server7x.wsgi.application'
+ASGI_APPLICATION = 'server7x.asgi.application'
 
 
 # Database
@@ -183,3 +189,12 @@ CELERY_RESULT_SERIALIZER = "json"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        }
+    }
+}
