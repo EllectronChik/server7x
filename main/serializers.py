@@ -21,7 +21,6 @@ class PlayersSerializer(serializers.ModelSerializer):
 
     
     def validate_avatar(self, value):
-        print('validate avatar ', value)
         if value.split('.')[-1].lower() not in ['jpg', 'png', 'jpeg', 'svg']:
             value = 'http://localhost:8000/media/players/logo/default.svg'
         return value
@@ -157,6 +156,18 @@ class MatchesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
         fields = '__all__'
+
+    def validate(self, data):
+        player_one = data.get('player_one')
+        player_two = data.get('player_two')
+
+        if player_one == player_two and player_one is not None:
+            raise serializers.ValidationError("Players can't be equal")
+
+        if player_one is not None and player_two is not None and player_one.team == player_two.team:
+            raise serializers.ValidationError("Teams can't be equal")
+
+        return data
 
 
 class RaceSerializer(serializers.ModelSerializer):
