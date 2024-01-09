@@ -17,7 +17,7 @@ class Match(models.Model):
                                    null=True, blank=True, default=None)
     winner = models.ForeignKey('Player', on_delete=models.PROTECT, null=True, blank=True, default=None)
     tournament = models.ForeignKey('Tournament', on_delete=models.PROTECT)
-    map = models.CharField(max_length=100)
+    map = models.CharField(max_length=100, null=True, blank=True, default=None)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
     def get_teams(self):
         teams = [self.player_one.team, self.player_two.team]
@@ -31,10 +31,11 @@ class Match(models.Model):
         return f"{self.player_one} vs {self.player_two}"
     
     def clean(self):
-        if self.player_one == self.player_two:
-            raise ValidationError("Players can't be equal")
-        if self.player_one.team == self.player_two.team:
-            raise ValidationError("Teams can't be equal")
+        if (self.player_one == self.player_two and self.player_one is not None):
+            raise ValidationError(f"Players can't be equal, {self.player_one}")
+        if (not (self.player_one is None) and not(self.player_two is None)):
+            if self.player_one.team == self.player_two.team:
+                raise ValidationError("Teams can't be equal")
     
     def save(self, *args, **kwargs):
         self.clean()
