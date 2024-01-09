@@ -105,8 +105,6 @@ def get_blizzard_data(region, realm, character_id):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
     api_url = f'https://us.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
     response = requests.get(api_url)
-    print(api_url)
-    print(response)
     if response.status_code == 200:
         return response
     elif response.status_code == 401:

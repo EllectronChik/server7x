@@ -195,10 +195,8 @@ class TournamentsViewSet(viewsets.ModelViewSet):
             team_two = serializer.validated_data['team_two'],
             match_start_time = serializer.validated_data['match_start_time']).first()
         if (serializer.validated_data['team_one'] == serializer.validated_data['team_two']):
-            print("Teams can't be equal")
             raise exceptions.ValidationError("Teams can't be equal")
         if tournament:
-            print("Tournament is already created")
             raise exceptions.PermissionDenied("Tournament is already created")
         if 'group' in serializer.validated_data:
             try:
@@ -246,8 +244,6 @@ class TournamentsViewSet(viewsets.ModelViewSet):
                                 team_one = serializer.validated_data['team_one'],
                             )
                             if tournament and serializer.validated_data['match_start_time']:
-                                print(serializer.validated_data['match_start_time'])
-                                print(tournament.match_start_time)
                                 tournament.match_start_time = serializer.validated_data['match_start_time']
                                 tournament.save()
                         except Tournament.DoesNotExist:
@@ -400,7 +396,6 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
         user = request.user
         if user.is_anonymous:
             return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
-        print(player_id)
         try:
             player = Player.objects.get(pk=player_id)
         except Player.DoesNotExist:
@@ -579,7 +574,6 @@ def get_avatar(region, realm, character_id):
 def get_team_and_related_data(request):
     user_id = request.query_params.get('user', None)
     if user_id is None:
-        print("User ID is required in query parameter")
         return Response({"error": "User ID is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
     try: 
@@ -597,7 +591,6 @@ def get_team_and_related_data(request):
     team_logo_url = team.logo.url
     team_region_name = team.region.name
     team_region_flag = team.region.flag_url.url
-    print(team_region_flag)
     try:
         season = Season.objects.get(is_finished=False)
     except:
@@ -749,7 +742,6 @@ def get_current_season(request):
 @api_view(['GET'])
 def get_last_season(request):
     seasons = Season.objects.last()
-    print(request, seasons)
     serializer = SeasonsSerializer(seasons)
     return Response(serializer.data)
 
@@ -941,8 +933,6 @@ def getToursByManager(request):
         return Response([])
     tournaments = tournaments.order_by('match_start_time')
     responseData = []
-    print(tournaments)
-    print('A' * 50)
     for tournament in tournaments:
         if tournament.asked_team is not None: 
             if tournament.asked_team.id != team.id:
