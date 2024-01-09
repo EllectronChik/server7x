@@ -12,6 +12,7 @@ from django.db.models.signals import post_save
 from main.models import Tournament, Match, Player
 from channels.layers import get_channel_layer
 from main.serializers import MatchesSerializer
+from functools import partial
 
 
 env = environ.Env()
@@ -55,7 +56,10 @@ class ScoreConsumer(AsyncConsumer):
                         )
                         await self.send({
                             'type': 'websocket.send',
-                            'text': f'team_one_wins: {obj.team_one_wins}, team_two_wins: {obj.team_two_wins}'
+                            'text': json.dumps({
+                                'team_one_wins': obj.team_one_wins,
+                                'team_two_wins': obj.team_two_wins
+                            })
                         })
                 else:
                     await self.send({
@@ -133,6 +137,7 @@ class MatchConsumer(AsyncConsumer):
         self.is_first_message_received = False
         self.timeout_task = asyncio.create_task(self.timeout_handler())
         self.group_id = None
+        self.group_name = None
 
 
     async def websocket_receive(self, event):
@@ -149,9 +154,9 @@ class MatchConsumer(AsyncConsumer):
                 token = data['token']
                 action = data['action']
                 if action == 'subscribe':
-                    group_name = data.get('group')
+                    self.group_name = data.get('group')
                     try:
-                        match_objects = await sync_to_async(Match.objects.filter)(tournament=group_name)
+                        match_objects = await sync_to_async(Match.objects.filter)(tournament=self.group_name)
                         matches_data = await sync_to_async(lambda: MatchesSerializer(match_objects, many=True).data)()
                         await self.send({
                             'type': 'websocket.send',
@@ -162,11 +167,11 @@ class MatchConsumer(AsyncConsumer):
                             'type': 'websocket.close',
                         })
                         raise StopConsumer()
-                    if group_name:
+                    if self.group_name:
                         await self.channel_layer.group_add(
-                            f'match_{group_name}', self.channel_name
+                            f'match_{self.group_name}', self.channel_name
                         )
-                        self.group_id = group_name
+                        self.group_id = self.group_name
                 else:
                     await self.send({
                         'type': 'websocket.close',
@@ -189,6 +194,7 @@ class MatchConsumer(AsyncConsumer):
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
+            post_save.connect(self.match_update_handler, sender=Match)
         else:
             try:
                 data = json.loads(event['text'])
@@ -200,7 +206,13 @@ class MatchConsumer(AsyncConsumer):
             try:
                 action = data['action']
                 if action == 'update':
-                    updated_field = data['updated_field']
+                    try:
+                        updated_field = data['updated_field']
+                    except Match.DoesNotExist:
+                        await self.send({
+                            'type': 'websocket.send',
+                            'text': json.dumps({})
+                        })
                     updated_column = data['updated_column']
                     updated_value = data['updated_value']                        
                     await self.match_patch(updated_field, updated_column, updated_value)
@@ -244,15 +256,7 @@ class MatchConsumer(AsyncConsumer):
         else:
             setattr(obj, column, data)            
         await sync_to_async(obj.save)()
-        await self.channel_layer.group_send(
-            f"match_{self.group_id}",
-            {
-                "type": "match_update",
-                "id": obj.id,
-                "column": column,
-                "data": data
-            }
-        )
+
 
     async def update_score(self, winner):
         if winner:
@@ -277,4 +281,22 @@ class MatchConsumer(AsyncConsumer):
                 'column': event['column'],
                 'data': event['data']
             })
+        })
+
+    @staticmethod
+    def match_update_handler(instance, **kwargs):
+        channel_layer = get_channel_layer()
+        matches_data = MatchesSerializer(instance).data
+        async_to_sync(channel_layer.group_send)(
+            f"match_{instance.tournament.id}",
+            {   
+                "type": "new_match_list",
+                "text": [matches_data]
+            }
+        )
+
+    async def new_match_list(self, event):
+        await self.send({
+            'type': 'websocket.send',
+            'text': json.dumps(event['text'])
         })
