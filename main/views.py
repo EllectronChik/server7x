@@ -942,12 +942,23 @@ def getToursByManager(request):
         else:
             timeSuggested = None
         opponent = tournament.team_two if tournament.team_one == team else tournament.team_one
+        team_in_tour_num = 1 if tournament.team_one == team else 2
+        opponent_data = TeamsSerializer(opponent).data
+        opp_players_to_tournament = PlayerToTournament.objects.filter(user=opponent.user, Season=season)
+        opp_players_to_tournament_data = []
+        for player in opp_players_to_tournament:
+            opp_players_to_tournament_data.append({
+                'id': player.player.id,
+                'username': player.player.username
+            })
+        opponent_data['players'] = opp_players_to_tournament_data
         responseData.append({
             'id': tournament.id,
             'startTime': tournament.match_start_time,
             'timeSuggested': timeSuggested,
-            'opponent': TeamsSerializer(opponent).data,
+            'opponent': opponent_data,
             'isFinished': tournament.is_finished,
+            'teamInTournament': team_in_tour_num
         })
     return Response(responseData)
 
