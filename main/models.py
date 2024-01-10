@@ -58,8 +58,8 @@ class Tournament(models.Model):
                                  on_delete=models.PROTECT,
                                  related_name='team_two',)
     match_start_time = models.DateTimeField()
-    team_one_wins = models.IntegerField(null=True, blank=True, default=None)
-    team_two_wins = models.IntegerField(null=True, blank=True, default=None)
+    team_one_wins = models.IntegerField(default=0)
+    team_two_wins = models.IntegerField(default=0)
     ask_for_other_time = models.DateTimeField(null=True, blank=True, default=None)
     asked_team = models.ForeignKey('Team', on_delete=models.PROTECT, null=True, blank=True, default=None)
     season = models.ForeignKey('Season', on_delete=models.PROTECT)
