@@ -138,6 +138,7 @@ class MatchConsumer(AsyncConsumer):
         self.timeout_task = asyncio.create_task(self.timeout_handler())
         self.group_id = None
         self.group_name = None
+        self.user = None
 
 
     async def websocket_receive(self, event):
@@ -194,6 +195,7 @@ class MatchConsumer(AsyncConsumer):
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
+            self.user = await sync_to_async(lambda: token_obj.user)()
             post_save.connect(self.match_update_handler, sender=Match)
         else:
             try:
@@ -215,9 +217,11 @@ class MatchConsumer(AsyncConsumer):
                         })
                     updated_column = data['updated_column']
                     updated_value = data['updated_value']                        
-                    await self.match_patch(updated_field, updated_column, updated_value)
                     if updated_column == 'winner':
-                        await self.update_score(updated_value)
+                        await self.update_score(updated_value, updated_field)
+                    await self.match_patch(updated_field, updated_column, updated_value)
+                elif action == 'create':
+                    await self.match_create(event)
                 else:
                     pass
             except json.JSONDecodeError:
@@ -250,27 +254,54 @@ class MatchConsumer(AsyncConsumer):
 
     async def match_patch(self, field, column, data):
         obj = await sync_to_async(Match.objects.get)(id=field)
+        match_winner = await sync_to_async(lambda: obj.winner)()
+        old_player_one = await sync_to_async(lambda: obj.player_one)()
+        old_player_two = await sync_to_async(lambda: obj.player_two)()
         if column == 'winner':
             winner = await sync_to_async(Player.objects.get)(pk=data)
             obj.winner = winner
+        elif column == 'player_one':
+            player = await sync_to_async(Player.objects.get)(pk=data)
+            if match_winner == old_player_one and old_player_one != None:
+                obj.winner = player
+            obj.player_one = player
+        elif column == 'player_two':
+            player = await sync_to_async(Player.objects.get)(pk=data)
+            if match_winner == old_player_two and old_player_two != None:
+                obj.winner = player
+            obj.player_two = player
         else:
             setattr(obj, column, data)            
         await sync_to_async(obj.save)()
 
+    async def match_create(self, event):
+        tournament = await sync_to_async(Tournament.objects.get)(pk=self.group_id)
+        await sync_to_async(Match.objects.create)(
+            tournament=tournament,
+            user=self.user,
+        )
 
-    async def update_score(self, winner):
+
+    async def update_score(self, winner, field):
         if winner:
             player = await sync_to_async(Player.objects.get)(pk=winner)
+            match = await sync_to_async(Match.objects.get)(pk=field)
+            match_winner = await sync_to_async(lambda: match.winner)()
             team = await sync_to_async(lambda: player.team)()
             tournament = await sync_to_async(Tournament.objects.get)(pk=self.group_id)
             team_one = await sync_to_async(lambda: tournament.team_one)()
             team_two = await sync_to_async(lambda: tournament.team_two)()
             if team_one == team:
                 tournament.team_one_wins += 1
+                if match_winner is not None:
+                    tournament.team_two_wins -= 1
             elif team_two == team:
                 tournament.team_two_wins += 1
+                if match_winner is not None:
+                    tournament.team_one_wins -= 1
             else:
                 pass
+
             await sync_to_async(tournament.save)()
 
     async def match_update(self, event):
