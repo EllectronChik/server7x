@@ -12,7 +12,7 @@ import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-from main.consumers import ScoreConsumer, MatchConsumer
+from main.consumers import *
 from django.urls import re_path, path
 
 
@@ -25,6 +25,7 @@ application = ProtocolTypeRouter({
     'websocket': AuthMiddlewareStack(URLRouter([
         path('ws/tournament_score/', ScoreConsumer.as_asgi()),
         path('ws/match/', MatchConsumer.as_asgi()),
+        path('ws/tournament_status/', TournamentStatusConsumer.as_asgi()),
     ])),
 })
 
