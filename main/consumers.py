@@ -9,129 +9,15 @@ import os
 import datetime
 from django.conf import settings
 from django.db.models.signals import post_save
-from main.models import Tournament, Match, Player, Manager, Season
+from main.models import Tournament, Match, Player, Manager, Season, Team
 from django.contrib.auth.models import User
 from channels.layers import get_channel_layer
-from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament
+from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament, TournamentsSerializer
 from django.db.models import Q
 from django.utils import timezone
 
 env = environ.Env()
 environ.Env.read_env(os.path.join(settings.BASE_DIR, '.env'))
-
-
-class ScoreConsumer(AsyncConsumer):
-    async def websocket_connect(self, event):
-        await self.send({
-            'type': 'websocket.accept'
-        })
-        self.is_first_message_received = False
-        self.timeout_task = asyncio.create_task(self.timeout_handler())
-        self.group_name = None
-
-
-    async def websocket_receive(self, event):
-        if (not self.is_first_message_received):
-            self.is_first_message_received = True
-            try:
-                data = json.loads(event['text'])
-            except json.JSONDecodeError:
-                await self.send({
-                    'type': 'websocket.close',
-                })
-                raise StopConsumer()
-            try:
-                token = data['token']
-                action = data['action']
-                if action == 'subscribe':
-                    self.group_name = data.get('group')
-                    try:
-                        obj = await sync_to_async(Tournament.objects.get)(pk=self.group_name)
-                    except Tournament.DoesNotExist:
-                        await self.send({
-                            'type': 'websocket.close',
-                        })
-                        raise StopConsumer()
-                    if self.group_name:
-                        await self.channel_layer.group_add(
-                            f'tournament_{self.group_name}', self.channel_name
-                        )
-                        await self.send({
-                            'type': 'websocket.send',
-                            'text': json.dumps({
-                                'team_one_wins': obj.team_one_wins,
-                                'team_two_wins': obj.team_two_wins
-                            })
-                        })
-                else:
-                    await self.send({
-                        'type': 'websocket.close',
-                    })
-                    raise StopConsumer()
-            except json.JSONDecodeError:
-                await self.send({
-                    'type': 'websocket.close',
-                })
-                raise StopConsumer()
-            except KeyError:
-                await self.send({
-                    'type': 'websocket.close',
-                })
-                raise StopConsumer()
-            try:
-                token_obj = await sync_to_async(Token.objects.get)(key=token)
-            except Token.DoesNotExist:
-                await self.send({
-                    'type': 'websocket.close',
-                })
-                raise StopConsumer()
-            post_save.connect(self.tournament_update_handler, sender=Tournament)
-
-
-    async def websocket_disconnect(self, event):
-        if self.timeout_task:
-            self.timeout_task.cancel()
-        await self.channel_layer.group_discard(
-            f'tournament_{self.group_name}',
-            self.channel_name
-        )
-        await self.send({
-            'type': 'websocket.close',
-        })
-        raise StopConsumer()
-
-    
-    async def timeout_handler(self):
-        try:
-            await asyncio.sleep(int(env('WEBSOCKET_AUTH_TIMEOUT')))
-            if not self.is_first_message_received:
-                await self.send({
-                    'type': 'websocket.close',
-                })
-                raise StopConsumer()
-        except asyncio.CancelledError:
-            pass
-
-    @staticmethod
-    def tournament_update_handler(instance, **kwargs):
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"tournament_{instance.id}",
-            {   
-                "type": "tournament_update",
-                "team_one_wins": instance.team_one_wins,
-                "team_two_wins": instance.team_two_wins
-            }
-        )
-
-    async def tournament_update(self, event):
-        await self.send({
-            'type': 'websocket.send',
-            'text': json.dumps({
-                'team_one_wins': event['team_one_wins'],
-                'team_two_wins': event['team_two_wins']
-            })
-        })
 
 
 class MatchConsumer(AsyncConsumer):
@@ -324,11 +210,14 @@ class MatchConsumer(AsyncConsumer):
     def match_update_handler(instance, **kwargs):
         channel_layer = get_channel_layer()
         matches_data = MatchesSerializer(instance).data
+        if type(instance) == Match:
+            matches = Match.objects.filter(tournament=instance.tournament)
+            matches_data = MatchesSerializer(matches, many=True).data
         async_to_sync(channel_layer.group_send)(
             f"match_{instance.tournament.id}",
             {   
                 "type": "new_match_list",
-                "text": [matches_data]
+                "text": matches_data
             }
         )
 
@@ -374,13 +263,20 @@ class TournamentStatusConsumer(AsyncConsumer):
                 if action == 'subscribe':
                     try:
                         user = await sync_to_async(lambda: token_obj.user)()
+                        user_id = await sync_to_async(lambda: user.id)()
                         manger = await sync_to_async(Manager.objects.get)(user=user)
                         team = await sync_to_async(lambda: manger.team)()
                         tournaments = await sync_to_async(Tournament.objects.filter)(Q(team_one=team) | Q(team_two=team))
                         if self.group_name:
-                            await self.channel_layer.group_add(
-                                f'manager_{self.group_name}', self.channel_name
-                            )
+                            if self.group_name == user_id:
+                                await self.channel_layer.group_add(
+                                    f'manager_{self.group_name}', self.channel_name
+                                )
+                            else:
+                                await self.send({
+                                    'type': 'websocket.close',
+                                })
+                                raise StopConsumer()
                         await sync_to_async(self.tournament_update_handler)(manager_id=self.group_name, instance=tournaments)
                     except Manager.DoesNotExist:
                         await self.send({
@@ -481,7 +377,7 @@ class TournamentStatusConsumer(AsyncConsumer):
             pass
 
 
-    def tournament_update_handler(self, instance: Tournament, **kwargs):
+    def tournament_update_handler(self, instance, **kwargs):
         channel_layer = get_channel_layer()
         user = User.objects.get(pk=self.group_name)
         season = Season.objects.get(is_finished=False)
@@ -552,6 +448,156 @@ class TournamentStatusConsumer(AsyncConsumer):
         )
 
     
+    async def send_tournaments(self, event):
+        await self.send({
+            'type': 'websocket.send',
+            'text': json.dumps(event['text'])
+        })
+
+
+class AdminConsumer(AsyncConsumer):
+    async def websocket_connect(self, event):
+        await self.send({
+            'type': 'websocket.accept'
+        })
+        self.is_first_message_received = False
+        self.timeout_task = asyncio.create_task(self.timeout_handler())
+        self.group_name = None
+
+    async def websocket_receive(self, event):
+        if (not self.is_first_message_received):
+            self.is_first_message_received = True
+            try:
+                data = json.loads(event['text'])
+            except json.JSONDecodeError:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+            try:
+                token = data['token']
+                self.group_name = data.get('group')
+                try:
+                    token_obj = await sync_to_async(Token.objects.get)(key=token)
+
+                except Token.DoesNotExist:
+                    await self.send({
+                        'type': 'websocket.close',
+                    })
+                    raise StopConsumer()
+                action = data['action']
+                if action == 'subscribe':
+                    try:
+                        user = await sync_to_async(lambda: token_obj.user)()
+                        self.group_name = await sync_to_async(lambda: user.id)()
+                        is_admin = await sync_to_async(lambda: user.is_staff)()
+                        season = await sync_to_async(Season.objects.get)(is_finished=False)
+                        tournaments = await sync_to_async(Tournament.objects.filter)(season=season)
+                        if is_admin:
+                            await self.channel_layer.group_add(
+                                f'admin_{self.group_name}',
+                                self.channel_name
+                            )
+                            await sync_to_async(self.tournament_update_handler)(instance=tournaments)
+                            post_save.connect(self.tournament_update_handler, sender=Tournament)
+                        else:
+                            await self.send({
+                                'type': 'websocket.close',
+                            })
+                            raise StopConsumer()
+                    except:
+                        await self.send({
+                            'type': 'websocket.close',
+                        })
+                        raise StopConsumer()
+
+            except KeyError:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+        else:
+            try:
+                data = json.loads(event['text'])
+            except json.JSONDecodeError:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+            if data['action'] == 'set_winner':
+                tournament_id = data['tournament_id']
+                winner_id = data['winner_id']
+                tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                winner = await sync_to_async(Team.objects.get)(id=winner_id)
+                tournament.is_finished = True
+                tournament.ask_for_finished = False
+                tournament.asked_team = None
+                tournament.winner = winner
+                await sync_to_async(tournament.save)()
+                        
+
+    async def websocket_disconnect(self, event):
+        if self.timeout_task:
+            self.timeout_task.cancel()
+        await self.channel_layer.group_discard(
+            f'admin_{self.group_name}',
+            self.channel_name
+        )
+        await self.send({
+            'type': 'websocket.close',
+        })
+        raise StopConsumer()
+    
+    async def timeout_handler(self):
+        try:
+            await asyncio.sleep(int(env('WEBSOCKET_AUTH_TIMEOUT')))
+            if not self.is_first_message_received:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+        except asyncio.CancelledError:
+            pass
+
+    def tournament_update_handler(self, instance, **kwargs):
+        channel_layer = get_channel_layer()
+        season = Season.objects.get(is_finished=False)
+        tournaments = Tournament.objects.filter(season=season)
+        response_data = []
+        for tournament in tournaments:
+            matches = Match.objects.filter(tournament=tournament)
+            if matches:
+                matchesExists = True
+            else:
+                matchesExists = False
+            tournament_data = {
+                'id': tournament.id,
+                'season': tournament.season.number,
+                'startTime': tournament.match_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'isFinished': tournament.is_finished,
+                'teamOne': tournament.team_one.pk,
+                'teamOneName': tournament.team_one.name,
+                'teamOneWins': tournament.team_one_wins,
+                'teamTwo': tournament.team_two.pk,
+                'teamTwoName': tournament.team_two.name,
+                'teamTwoWins': tournament.team_two_wins,
+                'stage': tournament.stage,
+                'group': tournament.group.pk,
+                'winner': tournament.winner.pk if tournament.winner else None,
+                'askedTeam': tournament.asked_team.pk if tournament.asked_team else None,
+                'askForFinished': tournament.ask_for_finished,
+                'matchesExists': matchesExists
+            }
+            response_data.append(tournament_data)
+        async_to_sync(channel_layer.group_send)(
+            f"admin_{self.group_name}",
+            {   
+                "type": "send_tournaments",
+                "text": response_data
+            }
+        )
+
+
     async def send_tournaments(self, event):
         await self.send({
             'type': 'websocket.send',
