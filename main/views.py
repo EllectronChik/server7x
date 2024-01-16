@@ -1,4 +1,5 @@
 import configparser
+import json
 import requests
 
 from main.models import *
@@ -1031,3 +1032,34 @@ def acceptTimeSuggestion(request):
     tournament.asked_team = None
     tournament.save()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_players_by_teams(request):
+    user = request.user
+    season = Season.objects.get(is_finished=False)
+    if user.is_anonymous:
+        return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
+    teams = request.data.get('teams')
+    try:
+        teams = json.loads(teams)
+    except:
+        teams = None
+    try:
+        iter(teams)
+    except:
+        teams = None
+    if teams is None:
+        return Response({"error": "teams is required as list of ids"}, status=status.HTTP_400_BAD_REQUEST)
+    players = []
+    for team in teams:
+        try:
+            user = Team.objects.get(id=team).user
+            team_players = PlayerToTournament.objects.filter(Season=season, user=user)
+        except Team.DoesNotExist:
+            return Response({"error": "Team with id " + str(team) + " not found"}, status=status.HTTP_404_NOT_FOUND)
+        for player in team_players:
+            players.append(player)
+    serializer = PlayerToTournamentSerializer(players, many=True)
+    return Response(serializer.data)
