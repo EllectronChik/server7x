@@ -23,9 +23,9 @@ django_asgi_app = get_asgi_application()
 application = ProtocolTypeRouter({
     'http': django_asgi_app,
     'websocket': AuthMiddlewareStack(URLRouter([
-        path('ws/tournament_score/', ScoreConsumer.as_asgi()),
         path('ws/match/', MatchConsumer.as_asgi()),
         path('ws/tournament_status/', TournamentStatusConsumer.as_asgi()),
+        path('ws/tournaments_admin/', AdminConsumer.as_asgi()),
     ])),
 })
 
