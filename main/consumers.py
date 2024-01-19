@@ -15,6 +15,7 @@ from channels.layers import get_channel_layer
 from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament, TournamentsSerializer
 from django.db.models import Q
 from django.utils import timezone
+from django.core.exceptions import ValidationError, FieldDoesNotExist
 
 env = environ.Env()
 environ.Env.read_env(os.path.join(settings.BASE_DIR, '.env'))
@@ -29,6 +30,7 @@ class MatchConsumer(AsyncConsumer):
         self.timeout_task = asyncio.create_task(self.timeout_handler())
         self.group_name = None
         self.user = None
+        self.is_admin_user = False
 
 
     async def websocket_receive(self, event):
@@ -85,6 +87,7 @@ class MatchConsumer(AsyncConsumer):
                 })
                 raise StopConsumer()
             self.user = await sync_to_async(lambda: token_obj.user)()
+            self.is_admin_user = await sync_to_async(lambda: self.user.is_staff)()
             post_save.connect(self.match_update_handler, sender=Match)
         else:
             try:
@@ -111,6 +114,9 @@ class MatchConsumer(AsyncConsumer):
                     await self.match_patch(updated_field, updated_column, updated_value)
                 elif action == 'create':
                     await self.match_create(event)
+                elif action == 'delete':
+                    match_pk = data['match_pk']
+                    await self.match_delete(match_pk)
                 else:
                     pass
             except json.JSONDecodeError:
@@ -172,6 +178,16 @@ class MatchConsumer(AsyncConsumer):
             tournament=tournament,
             user=self.user,
         )
+
+    async def match_delete(self, match_pk):
+        if (self.is_admin_user):
+            match = await sync_to_async(Match.objects.get)(pk=match_pk)
+            await sync_to_async(match.delete)()
+            matches = await sync_to_async(Match.objects.filter)(tournament=match.tournament)
+            await self.send({
+                'type': 'websocket.send',
+                'text': json.dumps(matches)
+            })
 
 
     async def update_score(self, winner, field):
@@ -422,6 +438,8 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'isFinished': tournament.is_finished,
                     'teamInTournament': team_in_tour_num,
                     'askForFinished': tournament.ask_for_finished,
+                    'teamOneWins': tournament.team_one_wins,
+                    'teamTwoWins': tournament.team_two_wins,
                     'askedTeam': asked_team 
                 })
             else:
@@ -433,8 +451,8 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'opponent': opponent_data,
                     'isFinished': tournament.is_finished,
                     'teamInTournament': team_in_tour_num,
-                    'team_one_wins': tournament.team_one_wins,
-                    'team_two_wins': tournament.team_two_wins,
+                    'teamOneWins': tournament.team_one_wins,
+                    'teamTwoWins': tournament.team_two_wins,
                     'matches': matches_data,
                     'winner': winner,
                 })
@@ -534,6 +552,78 @@ class AdminConsumer(AsyncConsumer):
                 tournament.asked_team = None
                 tournament.winner = winner
                 await sync_to_async(tournament.save)()
+            if data['action'] == 'update':
+                tournament_id = data['tournament_id']
+                field = data['field']
+                value = data['value']
+                if field == 'is_finished':
+                    try:
+                        tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                        team_one = await sync_to_async(lambda: tournament.team_one)()
+                        team_two = await sync_to_async(lambda: tournament.team_two)()
+                        team_one_wins = await sync_to_async(lambda: tournament.team_one_wins)()
+                        team_two_wins = await sync_to_async(lambda: tournament.team_two_wins)()
+                        try:
+                            tournament.is_finished = value
+                            if value is True:
+                                tournament.ask_for_finished = False
+                                tournament.asked_team = None
+                                if team_one_wins > team_two_wins:
+                                    tournament.winner = team_one
+                                elif team_one_wins < team_two_wins:
+                                    tournament.winner = team_two
+                                else:
+                                    tournament.winner = None
+                            else:
+                                tournament.winner = None
+                            await sync_to_async(tournament.save)()
+                        except ValidationError:
+                            await self.send({
+                                'type': 'websocket.send',
+                                'text': 'Incorrect Value'
+                            })
+                    except FieldDoesNotExist:
+                        await self.send({
+                            'type': 'websocket.send',
+                            'text': 'Field not found'
+                        })
+                elif field == 'winner':
+                    try:
+                        tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                        winner = await sync_to_async(Team.objects.get)(pk=value)
+                        try:
+                            tournament.is_finished = True
+                            tournament.ask_for_finished = False
+                            tournament.asked_team = None
+                            tournament.winner = winner
+                            await sync_to_async(tournament.save)()
+                        except ValidationError:
+                            await self.send({
+                                'type': 'websocket.send',
+                                'text': 'Incorrect Value'
+                            })
+                    except FieldDoesNotExist:
+                        await self.send({
+                            'type': 'websocket.send',
+                            'text': 'Field not found'
+                        })
+                else:
+                    try:
+                        await sync_to_async(lambda: Tournament._meta.get_field(field))()
+                        tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                        try:
+                            setattr(tournament, field, value)
+                            await sync_to_async(tournament.save)()
+                        except ValidationError:
+                            await self.send({
+                                'type': 'websocket.send',
+                                'text': 'Incorrect Value'
+                            })
+                    except FieldDoesNotExist:
+                        await self.send({
+                            'type': 'websocket.send',
+                            'text': 'Field not found'
+                        })
                         
 
     async def websocket_disconnect(self, event):
@@ -586,7 +676,8 @@ class AdminConsumer(AsyncConsumer):
                 'winner': tournament.winner.pk if tournament.winner else None,
                 'askedTeam': tournament.asked_team.pk if tournament.asked_team else None,
                 'askForFinished': tournament.ask_for_finished,
-                'matchesExists': matchesExists
+                'matchesExists': matchesExists,
+                'group': tournament.group.groupMark
             }
             response_data.append(tournament_data)
         async_to_sync(channel_layer.group_send)(
