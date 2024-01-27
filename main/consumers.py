@@ -9,7 +9,7 @@ import os
 import datetime
 from django.conf import settings
 from django.db.models.signals import post_save
-from main.models import Tournament, Match, Player, Manager, Season, Team
+from main.models import Tournament, Match, Player, Manager, Season, Team, GroupStage
 from django.contrib.auth.models import User
 from channels.layers import get_channel_layer
 from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament, TournamentsSerializer
@@ -440,7 +440,8 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'askForFinished': tournament.ask_for_finished,
                     'teamOneWins': tournament.team_one_wins,
                     'teamTwoWins': tournament.team_two_wins,
-                    'askedTeam': asked_team 
+                    'askedTeam': asked_team,
+                    'tournamentInGroup': True if tournament.group is not None else False,
                 })
             else:
                 matches = Match.objects.filter(tournament=tournament)
@@ -455,6 +456,7 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'teamTwoWins': tournament.team_two_wins,
                     'matches': matches_data,
                     'winner': winner,
+                    'tournamentInGroup': True if tournament.group is not None else False,
                 })
         
         async_to_sync(channel_layer.group_send)(
@@ -607,6 +609,40 @@ class AdminConsumer(AsyncConsumer):
                             'type': 'websocket.send',
                             'text': 'Field not found'
                         })
+                elif field == 'team_two':
+                    try:
+                        tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                        team_two = await sync_to_async(Team.objects.get)(pk=value)
+                        try:
+                            tournament.team_two = team_two
+                            await sync_to_async(tournament.save)()
+                        except ValidationError:
+                            await self.send({
+                                'type': 'websocket.send',
+                                'text': 'Incorrect Value'
+                            })
+                    except FieldDoesNotExist:
+                        await self.send({
+                            'type': 'websocket.send',
+                            'text': 'Field not found'
+                        })
+                elif field == 'team_one':
+                    try:
+                        tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                        team_one = await sync_to_async(Team.objects.get)(pk=value)
+                        try:
+                            tournament.team_one = team_one
+                            await sync_to_async(tournament.save)()
+                        except ValidationError:
+                            await self.send({
+                                'type': 'websocket.send',
+                                'text': 'Incorrect Value'
+                            })
+                    except FieldDoesNotExist:
+                        await self.send({
+                            'type': 'websocket.send',
+                            'text': 'Field not found'
+                        })
                 else:
                     try:
                         await sync_to_async(lambda: Tournament._meta.get_field(field))()
@@ -624,6 +660,31 @@ class AdminConsumer(AsyncConsumer):
                             'type': 'websocket.send',
                             'text': 'Field not found'
                         })
+            if data['action'] == 'create_tournament':
+                try:
+                    match_start_time = data['match_start_time']
+                    team_one_pk = data['team_one']
+                    team_two_pk = data['team_two']
+                    if team_one_pk == team_two_pk:
+                        raise ValidationError("Teams can't be equal")
+                    stage = data['stage']
+                    season = await sync_to_async(Season.objects.get)(is_finished=False)
+                    team_one = await sync_to_async(Team.objects.get)(pk=team_one_pk)
+                    team_two = await sync_to_async(Team.objects.get)(pk=team_two_pk)
+                    data = {
+                        'season': season,
+                        'match_start_time': match_start_time,
+                        'team_one': team_one,
+                        'team_two': team_two,
+                        'stage': stage,
+                        'is_finished': False
+                    }
+                    await sync_to_async(Tournament.objects.create)(**data)
+                except ValidationError:
+                    await self.send({
+                        'type': 'websocket.send',
+                        'text': 'Incorrect Value'
+                    })
                         
 
     async def websocket_disconnect(self, event):
@@ -672,12 +733,11 @@ class AdminConsumer(AsyncConsumer):
                 'teamTwoName': tournament.team_two.name,
                 'teamTwoWins': tournament.team_two_wins,
                 'stage': tournament.stage,
-                'group': tournament.group.pk,
+                'group': tournament.group.pk if tournament.group else None,
                 'winner': tournament.winner.pk if tournament.winner else None,
                 'askedTeam': tournament.asked_team.pk if tournament.asked_team else None,
                 'askForFinished': tournament.ask_for_finished,
-                'matchesExists': matchesExists,
-                'group': tournament.group.groupMark
+                'matchesExists': matchesExists
             }
             response_data.append(tournament_data)
         async_to_sync(channel_layer.group_send)(
@@ -690,6 +750,130 @@ class AdminConsumer(AsyncConsumer):
 
 
     async def send_tournaments(self, event):
+        await self.send({
+            'type': 'websocket.send',
+            'text': json.dumps(event['text'])
+        })
+
+
+class groupsConsumer(AsyncConsumer):
+    async def websocket_connect(self, event):
+        await self.send({
+            'type': 'websocket.accept'
+        })
+        self.is_first_message_received = False
+        self.timeout_task = asyncio.create_task(self.timeout_handler())
+        self.group_name = None
+        self.user = None
+        self.is_admin_user = False
+
+    
+    async def websocket_receive(self, event):
+        if (not self.is_first_message_received):
+            self.is_first_message_received = True
+            try:
+                data = json.loads(event['text'])
+            except json.JSONDecodeError:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+            try:
+                token = data['token']
+                self.group_name = data.get('group')
+                try:
+                    token_obj = await sync_to_async(Token.objects.get)(key=token)
+                except Token.DoesNotExist:
+                    await self.send({
+                        'type': 'websocket.close',
+                    })
+                    raise StopConsumer()
+                action = data['action']
+                if action == 'subscribe':
+                    try:
+                        user = await sync_to_async(lambda: token_obj.user)()
+                        self.group_name = await sync_to_async(lambda: user.id)()
+                        is_admin = await sync_to_async(lambda: user.is_staff)()
+                        season = await sync_to_async(Season.objects.get)(is_finished=False)
+                        tournaments = await sync_to_async(Tournament.objects.filter)(season=season)
+                        if is_admin:
+                            self.is_admin_user = True
+                            self.user = user
+                            await self.channel_layer.group_add(
+                                f'groups_{self.group_name}',
+                                self.channel_name
+                            )
+                            await sync_to_async(self.group_update_handler)(instance=tournaments)
+                            post_save.connect(self.group_update_handler, sender=Tournament)
+                        else:
+                            await self.send({
+                                'type': 'websocket.close',
+                            })
+                            raise StopConsumer()
+                    except:
+                        await self.send({
+                            'type': 'websocket.close',
+                        })
+                        raise StopConsumer()
+
+            except KeyError:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+
+
+    async def websocket_disconnect(self, event):
+        if self.timeout_task:
+            self.timeout_task.cancel()
+        await self.channel_layer.group_discard(
+            f'groups_{self.group_name}',
+            self.channel_name
+        )
+        await self.send({
+            'type': 'websocket.close',
+        })
+        raise StopConsumer()
+
+
+    async def timeout_handler(self):
+        try:
+            await asyncio.sleep(int(env('WEBSOCKET_AUTH_TIMEOUT')))
+            if not self.is_first_message_received:
+                await self.send({
+                    'type': 'websocket.close',
+                })
+                raise StopConsumer()
+        except asyncio.CancelledError:
+            pass
+
+    
+    def group_update_handler(self, instance, **kwargs):
+        channel_layer = get_channel_layer()
+        season = Season.objects.get(is_finished=False)
+        groups = GroupStage.objects.filter(season=season)
+        tournaments = Tournament.objects.filter(season=season, group__isnull=False)
+        wins = {}
+        for tournament in tournaments:
+            if tournament.winner:
+                wins[tournament.winner.pk] = wins.get(tournament.winner.pk, 0) + 1
+        groups_data = {}
+        for group in groups:
+            teams_data = {}
+            for team in group.teams.all():
+                teams_data[str(team.pk)] = wins.get(team.pk, 0)
+            groups_data[str(group.pk)] = teams_data
+        if groups_data:
+            async_to_sync(channel_layer.group_send)(
+                f'groups_{self.group_name}',
+                {
+                    'type': 'send_groups',
+                    'text': groups_data
+                }
+            )
+
+
+    async def send_groups(self, event):
         await self.send({
             'type': 'websocket.send',
             'text': json.dumps(event['text'])
