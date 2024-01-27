@@ -258,6 +258,7 @@ class TournamentsViewSet(viewsets.ModelViewSet):
                                 )
                                 if tournament and serializer.validated_data['stage']:
                                     tournament.stage = serializer.validated_data['stage']
+                                    
                                     tournament.save()
                             except Tournament.DoesNotExist:
                                 serializer.save()
@@ -795,7 +796,10 @@ def randomizeGroups(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def getPlayerToCurrentTournament(request):
-    season = Season.objects.get(is_finished=False)
+    try:
+        season = Season.objects.get(is_finished=False)
+    except Season.DoesNotExist:
+        return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
     user = request.user 
     if season:
         playerToTournaments = PlayerToTournament.objects.filter(Season=season, user=user)
@@ -1038,28 +1042,24 @@ def acceptTimeSuggestion(request):
 @permission_classes([IsAuthenticated])
 def get_players_by_teams(request):
     user = request.user
-    season = Season.objects.get(is_finished=False)
+    try:
+        season = Season.objects.get(is_finished=False)
+    except Season.DoesNotExist:
+        return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
     if user.is_anonymous:
         return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
-    teams = request.data.get('teams')
-    try:
-        teams = json.loads(teams)
-    except:
-        teams = None
-    try:
-        iter(teams)
-    except:
-        teams = None
-    if teams is None:
-        return Response({"error": "teams is required as list of ids"}, status=status.HTTP_400_BAD_REQUEST)
-    players = []
+    teams = TournamentRegistration.objects.filter(season=season).values_list('team', flat=True)
+    response = {}
+    players = {}
     for team in teams:
         try:
             user = Team.objects.get(id=team).user
             team_players = PlayerToTournament.objects.filter(Season=season, user=user)
+            for team_player in team_players:
+                players[team_player.player.id] = team_player.player.username
+            response[team] = players
+            players = {}
         except Team.DoesNotExist:
             return Response({"error": "Team with id " + str(team) + " not found"}, status=status.HTTP_404_NOT_FOUND)
-        for player in team_players:
-            players.append(player)
-    serializer = PlayerToTournamentSerializer(players, many=True)
-    return Response(serializer.data)
+    sorted_response = dict(sorted(response.items(), key=lambda x: x[0]))
+    return Response(sorted_response)
