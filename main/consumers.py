@@ -340,6 +340,13 @@ class TournamentStatusConsumer(AsyncConsumer):
                         await sync_to_async(obj.save)()
                 elif action == 'finish':
                     obj = await sync_to_async(Tournament.objects.get)(pk=tournament_id)
+                    obj_inline = await sync_to_async(lambda: obj.inline_number)()
+                    paired_number = obj_inline + 1 if obj_inline % 2 == 0 else obj_inline - 1
+                    paired_tournament = await sync_to_async(lambda: Tournament.objects.get(inline_number=paired_number, stage=obj.stage, season=obj.season))()
+                    if paired_tournament:
+                        paired_tournament_winner = await sync_to_async(lambda: paired_tournament.winner)()
+                    else:
+                        paired_tournament_winner = None
                     asked_team = await sync_to_async(lambda: obj.asked_team)()
                     manager = await sync_to_async(Manager.objects.get)(user=self.user)
                     team = await sync_to_async(lambda: manager.team)()
@@ -357,6 +364,22 @@ class TournamentStatusConsumer(AsyncConsumer):
                             obj.winner = team_two
                         else:
                             obj.winner = None
+                        if paired_tournament_winner is not None and obj.winner is not None:
+                            next_stage_tournament = await sync_to_async(lambda: Tournament(
+                                team_one=obj.winner,
+                                team_two=paired_tournament_winner,
+                                season=obj.season,
+                                stage=obj.stage + 1,
+                                inline_number=obj.inline_number // 2,
+                                match_start_time=(
+                                    datetime.datetime.combine(
+                                        datetime.datetime.now() + datetime.timedelta(days=1), 
+                                        datetime.time(15, 0)))
+                            ))()
+                            await sync_to_async(next_stage_tournament.save)()
+                            obj.next_stage_tournament = next_stage_tournament
+                            paired_tournament.next_stage_tournament = next_stage_tournament
+                            await sync_to_async(paired_tournament.save)()
                     else:
                         obj.ask_for_finished = True
                         obj.asked_team = team
@@ -592,12 +615,47 @@ class AdminConsumer(AsyncConsumer):
                 elif field == 'winner':
                     try:
                         tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
+                        obj_inline = tournament.inline_number
+                        if (obj_inline):
+                            try:
+                                paired_number = obj_inline + 1 if obj_inline % 2 == 0 else obj_inline - 1
+                            except:
+                                paired_number = None
+                        else:
+                            paired_number = None
+                        try:
+                            if (paired_number is not None):
+                                paired_tournament = await sync_to_async(lambda: Tournament.objects.get(inline_number=paired_number, stage=tournament.stage, season=tournament.season))()
+                            else:
+                                paired_tournament = None
+                        except Tournament.DoesNotExist:
+                            paired_tournament = None
+                        if paired_tournament is not None:
+                            paired_tournament_winner = await sync_to_async(lambda: paired_tournament.winner)()
+                        else:
+                            paired_tournament_winner = None
                         winner = await sync_to_async(Team.objects.get)(pk=value)
                         try:
                             tournament.is_finished = True
                             tournament.ask_for_finished = False
                             tournament.asked_team = None
                             tournament.winner = winner
+                            if (paired_tournament_winner is not None):
+                                next_stage_tournament = await sync_to_async(lambda: Tournament(
+                                    team_one=paired_tournament_winner, 
+                                    team_two=winner,
+                                    season=paired_tournament.season,
+                                    stage=paired_tournament.stage + 1,
+                                    is_finished=False,
+                                    inline_number=paired_number // 2,
+                                    match_start_time=(
+                                        datetime.datetime.combine(
+                                            datetime.datetime.now() + datetime.timedelta(days=1), 
+                                            datetime.time(15, 0)))))()
+                                await sync_to_async(next_stage_tournament.save)()
+                                paired_tournament.next_stage_tournament = next_stage_tournament
+                                await sync_to_async(lambda: paired_tournament.save)()
+                                tournament.next_stage_tournament = next_stage_tournament
                             await sync_to_async(tournament.save)()
                         except ValidationError:
                             await self.send({
@@ -665,6 +723,7 @@ class AdminConsumer(AsyncConsumer):
                     match_start_time = data['match_start_time']
                     team_one_pk = data['team_one']
                     team_two_pk = data['team_two']
+                    inline_number = data.get('inline_number')
                     if team_one_pk == team_two_pk:
                         raise ValidationError("Teams can't be equal")
                     stage = data['stage']
@@ -677,7 +736,8 @@ class AdminConsumer(AsyncConsumer):
                         'team_one': team_one,
                         'team_two': team_two,
                         'stage': stage,
-                        'is_finished': False
+                        'is_finished': False,
+                        'inline_number': inline_number
                     }
                     await sync_to_async(Tournament.objects.create)(**data)
                 except ValidationError:

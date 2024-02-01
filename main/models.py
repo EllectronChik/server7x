@@ -68,6 +68,8 @@ class Tournament(models.Model):
     stage = models.IntegerField()
     group = models.ForeignKey('GroupStage', on_delete=models.CASCADE, null=True, blank=True, default=None)
     is_finished = models.BooleanField()
+    inline_number = models.IntegerField(null=True, blank=True, default=None)
+    next_stage_tournament = models.ForeignKey('Tournament', on_delete=models.CASCADE, null=True, blank=True, default=None, related_name='next_stage_tournament_related_name')
     
     def __str__(self):
         return f"{self.team_one} vs {self.team_two}"
