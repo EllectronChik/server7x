@@ -27,6 +27,7 @@ application = ProtocolTypeRouter({
         path('ws/tournament_status/', TournamentStatusConsumer.as_asgi()),
         path('ws/tournaments_admin/', AdminConsumer.as_asgi()),
         path('ws/groups/', groupsConsumer.as_asgi()),
+        path('ws/information/', InfoConsumer.as_asgi()),
     ])),
 })
 
