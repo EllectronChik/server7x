@@ -25,7 +25,6 @@ router.register(r'groupStages', views.groupStageViewSet, basename='groupStages')
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path('api/v1/', include(router.urls)),
     path('api/v1/matches/<int:match_id>/players/', views.MatchPlayersViewSet.as_view({'get': 'list'})),
     path('api/v1/matches/<int:match_id>/teams/', views.MatchTeamsViewSet.as_view({'get': 'list'})),
@@ -59,4 +58,6 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
+    urlpatterns.append(path('admin/', admin.site.urls)),
+    urlpatterns.append(path('silk/', include('silk.urls', namespace='silk'))),
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
