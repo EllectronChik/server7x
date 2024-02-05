@@ -25,7 +25,11 @@ app.conf.beat_schedule = {
     'every': {
         'task': 'main.tasks.daily_task',
         'schedule': crontab(hour=run_hour, minute=run_minute),
-    }
+    },
+    'update_players_data': {
+        'task': 'main.tasks.update_players_data',
+        'schedule': crontab(hour=run_hour, minute=run_minute),
+    },
 }
 app.conf.task_always_eager = False
 app.conf.task_reject_on_worker_lost = True
