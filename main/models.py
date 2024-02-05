@@ -113,6 +113,7 @@ class Season(models.Model):
     start_datetime = models.DateTimeField()
     is_finished = models.BooleanField()
     can_register = models.BooleanField()
+    winner = models.ForeignKey('Team', on_delete=models.PROTECT, null=True, blank=True, default=None, related_name='season_winner')
 
     def __str__(self):
         return str(self.number)
@@ -138,6 +139,7 @@ class Player(models.Model):
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
     region = models.IntegerField(choices=((1, 'US'), (2, 'EU'), (3, 'KR')), default=2)
+    battlenet_id = models.IntegerField(null=True, blank=True, default=None)
 
     def __str__(self):
         return self.username
