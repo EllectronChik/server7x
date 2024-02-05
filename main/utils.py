@@ -2,11 +2,13 @@ import configparser
 import datetime
 import random
 import requests
+from rest_framework import status
 from rest_framework.response import Response
 from main.models import GroupStage, LeagueFrame
 from PIL import Image
 from io import BytesIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
+
 
 
 config = configparser.ConfigParser()
@@ -166,3 +168,126 @@ def image_compressor(image, team_name=None):
         image_buffer, None, name, 'image/png', image_buffer.tell(), None
     )
     return image_file
+
+
+def get_avatar(region, realm, character_id):
+    try:
+        response = get_blizzard_data(region, realm, character_id)
+        if response.status_code == 404:
+            return None
+        data = response.json()
+        avatar = data['avatarUrl']
+        return avatar
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            return None
+        else:
+            raise e
+
+
+def leagueFrames():
+    league_frames = {
+            'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
+            'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
+            'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
+            'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
+            'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
+            'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
+            'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
+            'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
+            'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
+            'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
+            'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
+            'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
+            'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
+            'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
+            'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
+            'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
+            'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
+            'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
+        }
+    return league_frames
+
+
+def get_league(mmr, league_frames, region):
+    mmr = int(mmr)
+    if (mmr > league_frames[f'{region}_6']):
+        league_max = 7
+    elif (mmr > league_frames[f'{region}_5']):
+        league_max = 6
+    elif (mmr > league_frames[f'{region}_4']):
+        league_max = 5
+    elif (mmr > league_frames[f'{region}_3']):
+        league_max = 4
+    elif (mmr > league_frames[f'{region}_2']):
+        league_max = 3
+    elif (mmr > league_frames[f'{region}_1']):
+        league_max = 2
+    else:
+        league_max = 1
+    return league_max
+
+
+def form_character_data(clan_tag: str):
+    api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
+    response = requests.get(api_url)
+    league_frames = leagueFrames()
+    if response.status_code == 200:
+        data = response.json()
+        if len(data) == 0:
+            return [None, status.HTTP_404_NOT_FOUND]
+        character_data = []
+        for item in data:
+            character = item['members']['character']
+            name = character['name'].split('#')[0]
+            ch_id = character['battlenetId']
+            region = character['region']
+            mmr = item['currentStats']['rating']
+            if (not mmr):
+                mmr = item['ratingMax']
+            if region in ['TW', 'CN']:
+                region = 'KR'
+
+            league_max = get_league(mmr, league_frames, region)
+            if league_max == 7:
+                league_max = item['leagueMax'] + 1
+
+            match region:
+                case 'US':
+                    region = 1
+                case 'EU':
+                    region = 2
+                case 'KR':
+                    region = 3
+            realm = character['realm']
+            if ('protossGamesPlayed' in item['members']):
+                race = 3
+            elif ('zergGamesPlayed' in item['members']):
+                race = 1
+            elif ('terranGamesPlayed' in item['members']):
+                race = 2
+            elif ('randomGamesPlayed' in item['members']):
+                race = 4
+            else:
+                race = 'unknown'
+            character_info = {
+                "username": name,
+                "region": region,
+                "realm": realm,
+                "id": ch_id,
+                "league": league_max,
+                "race": race,
+                "mmr": mmr
+            }
+
+            character_data.append(character_info)
+        region_priority = {
+            2: 0,
+            1: 1,
+            3: 2
+        }
+        character_data = sorted(character_data, key=lambda k: (region_priority.get(k['region'], float('inf')), -k['mmr']))
+        resp_status = status.HTTP_200_OK
+        return [character_data, resp_status]
+    else:
+        return [None, status.HTTP_404_NOT_FOUND]

@@ -1,9 +1,9 @@
 import configparser
-import json
 import requests
 
 from main.models import *
 from main.serializers import *
+from main.utils import leagueFrames, get_league, form_character_data, get_avatar
 from rest_framework import status, viewsets, exceptions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from djoser.utils import logout_user
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
 from .permissions import *
 from .utils import get_blizzard_data, distribute_teams_to_groups, image_compressor
@@ -162,6 +162,12 @@ class SeasonsViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object_or_404()
+        if (request.data.get('is_finished')):
+            highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by('-stage').values_list('stage', flat=True).distinct()[0]
+            if (highest_stage == 999):
+                highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by('-stage').values_list('stage', flat=True).distinct()[1]
+            tournament = Tournament.objects.get(season=instance, group__isnull=True, stage=highest_stage)
+            instance.winner = tournament.winner if tournament.winner else None
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -430,80 +436,13 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
         return PlayerToTournament.objects.all()
 
 class GetClanMembers(APIView):
-    def get(self, request, clan_tag):
-        api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
-
-        league_frames = leagueFrames()
-        
+    def get(self, request, clan_tag):        
         try:
-            response = requests.get(api_url)
-            if response.status_code == 200:
-                data = response.json()
-                if len(data) == 0:
-                    return Response({"error": "Clan not found"}, status=status.HTTP_404_NOT_FOUND)
-                character_data = []
-                for item in data:
-                    character = item['members']['character']
-                    name = character['name'].split('#')[0]
-                    ch_id = character['battlenetId']
-                    region = character['region']
-                    mmr = item['currentStats']['rating']
-                    if (not mmr):
-                        mmr = item['ratingMax']
-                    if region in ['TW', 'CN']:
-                        region = 'KR'
-
-                    league_max = get_league(mmr, league_frames, region)
-                    if league_max == 7:
-                        league_max = item['leagueMax'] + 1
-
-                    match region:
-                        case 'US':
-                            region = 1
-                        case 'EU':
-                            region = 2
-                        case 'KR':
-                            region = 3
-
-
-                    realm = character['realm']
-
-
-                    if ('protossGamesPlayed' in item['members']):
-                        race = 3
-                    elif ('zergGamesPlayed' in item['members']):
-                        race = 1
-                    elif ('terranGamesPlayed' in item['members']):
-                        race = 2
-                    elif ('randomGamesPlayed' in item['members']):
-                        race = 4
-                    else:
-                        race = 'unknown'
-
-
-
-
-                    character_info = {
-                        "username": name,
-                        "region": region,
-                        "realm": realm,
-                        "id": ch_id,
-                        "league": league_max,
-                        "race": race,
-                        "mmr": mmr
-                    }
-
-                    character_data.append(character_info)
-                region_priority = {
-                    2: 0,
-                    1: 1,
-                    3: 2
-                }
-                character_data = sorted(character_data, key=lambda k: (region_priority.get(k['region'], float('inf')), -k['mmr']))
-
-                return Response(character_data, status=status.HTTP_200_OK)
+            character_data = form_character_data(clan_tag)
+            if character_data[1] == status.HTTP_200_OK:
+                return Response(character_data[0], status=status.HTTP_200_OK)
             else:
-                raise Exception(f"Error {response.status_code}")
+                raise Exception(f"Error {character_data[1]}")
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -552,24 +491,6 @@ def is_manager_or_staff(request):
     return Response(status=status.HTTP_200_OK, data={
         "is_staff": request.user.is_staff,
         "is_manager": is_manager})
-
-
-
-
-def get_avatar(region, realm, character_id):
-    try:
-        response = get_blizzard_data(region, realm, character_id)
-        if response.status_code == 404:
-            return None
-        data = response.json()
-        avatar = data['avatarUrl']
-        return avatar
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            return None
-        else:
-            raise e
-
 
 
 @api_view(['GET'])
@@ -624,48 +545,6 @@ def get_team_and_related_data(request):
 
     return Response(team_data)
 
-
-def leagueFrames():
-    league_frames = {
-            'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
-            'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
-            'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
-            'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
-            'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
-            'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
-            'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
-            'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
-            'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
-            'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
-            'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
-            'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
-            'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
-            'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
-            'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
-            'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
-            'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
-            'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
-        }
-    return league_frames
-
-
-def get_league(mmr, league_frames, region):
-    mmr = int(mmr)
-    if (mmr > league_frames[f'{region}_6']):
-        league_max = 7
-    elif (mmr > league_frames[f'{region}_5']):
-        league_max = 6
-    elif (mmr > league_frames[f'{region}_4']):
-        league_max = 5
-    elif (mmr > league_frames[f'{region}_3']):
-        league_max = 4
-    elif (mmr > league_frames[f'{region}_2']):
-        league_max = 3
-    elif (mmr > league_frames[f'{region}_1']):
-        league_max = 2
-    else:
-        league_max = 1
-    return league_max
 
 
 @api_view(['GET'])
@@ -855,7 +734,7 @@ def postTeamToGroup(request):
     if teamId is None:
         return Response({"error": "teamId is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        team = TournamentRegistration.objects.get(team_id=teamId)
+        team = TournamentRegistration.objects.get(team_id=teamId, season__is_finished=False)
     except TournamentRegistration.DoesNotExist:
         return Response({"error": "Team not found"}, status=status.HTTP_404_NOT_FOUND)
     season = Season.objects.get(is_finished=False)
@@ -1036,30 +915,30 @@ def acceptTimeSuggestion(request):
     tournament.asked_team = None
     tournament.save()
     return Response(status=status.HTTP_204_NO_CONTENT)
-
+    
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_players_by_teams(request):
     user = request.user
+    if user.is_anonymous:
+        return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
-    if user.is_anonymous:
-        return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
-    teams = TournamentRegistration.objects.filter(season=season).values_list('team', flat=True)
+    teams = TournamentRegistration.objects.filter(season=season).select_related('team', 'user').prefetch_related('user__playertotournament_set')
     response = {}
     players = {}
     for team in teams:
         try:
-            user = Team.objects.get(id=team).user
-            team_players = PlayerToTournament.objects.filter(Season=season, user=user)
+            user = team.user
+            team_players = team.user.playertotournament_set.all()
             for team_player in team_players:
                 players[team_player.player.id] = team_player.player.username
-            response[team] = players
+            response[team.team.pk] = players
             players = {}
         except Team.DoesNotExist:
-            return Response({"error": "Team with id " + str(team) + " not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Team with id " + str(team.team.pk) + " not found"}, status=status.HTTP_404_NOT_FOUND)
     sorted_response = dict(sorted(response.items(), key=lambda x: x[0]))
     return Response(sorted_response)
