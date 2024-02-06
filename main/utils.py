@@ -10,9 +10,9 @@ from io import BytesIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
-
 config = configparser.ConfigParser()
 config.read('.ini')
+
 
 async def get_blizzard_league_data(region, league):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
@@ -43,7 +43,7 @@ async def get_blizzard_league_data(region, league):
     elif response.status_code == 401:
         get_new_access_token()
         return await get_blizzard_league_data(region, league)
-    
+
     elif response.status_code == 404:
         api_url = f'https://{region}.api.blizzard.com/data/sc2/league/{season - 1}/201/0/{league - 1}?locale=en_US&access_token={token}'
         response = requests.get(api_url)
@@ -57,7 +57,6 @@ async def get_blizzard_league_data(region, league):
             return await get_blizzard_league_data(region, league)
         else:
             return None
-        
 
 
 async def get_season():
@@ -92,17 +91,19 @@ def get_new_access_token():
         'grant_type': 'client_credentials',
     }
 
-    response = requests.post(token_url, data=data, auth=(client_id, client_secret))
+    response = requests.post(token_url, data=data,
+                             auth=(client_id, client_secret))
 
     if response.status_code == 200:
-        config.set('BLIZZARD', 'BLIZZARD_API_TOKEN', response.json()['access_token'])
+        config.set('BLIZZARD', 'BLIZZARD_API_TOKEN',
+                   response.json()['access_token'])
         with open('.ini', 'w') as f:
             config.write(f)
         return response.json()['access_token']
     else:
         return (response.status_code)
 
-    
+
 def get_blizzard_data(region, realm, character_id):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
     api_url = f'https://us.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
@@ -114,7 +115,7 @@ def get_blizzard_data(region, realm, character_id):
         return get_blizzard_data(region, realm, character_id)
     else:
         return Response({"error": "Character not found"}, status=404)
-    
+
 
 def distribute_teams_to_groups(teams, num_groups):
     try:
@@ -133,26 +134,27 @@ def distribute_teams_to_groups(teams, num_groups):
         group_mark = chr(group_mark)
         try:
             group_stage, created = GroupStage.objects.get_or_create(
-                season = teams[0].season,
-                groupMark = group_mark
+                season=teams[0].season,
+                groupMark=group_mark
             )
             for i in range(teams_per_group):
                 team = teams.pop(0).team
                 group_stage.teams.add(team)
         except IndexError:
-                break
+            break
     cnt = 0
     for remaining_team in teams:
         group_stage, created = GroupStage.objects.get_or_create(
-            season = remaining_team.season, 
-            groupMark = chr(ord('A') + cnt)
+            season=remaining_team.season,
+            groupMark=chr(ord('A') + cnt)
         )
         group_stage.teams.add(remaining_team.team)
         cnt += 1
     return {"status": 201}
 
+
 def image_compressor(image, team_name=None):
-    
+
     max_size = (720, 720)
     imagePl = Image.open(image)
     imagePl.thumbnail(max_size, Image.Resampling.LANCZOS)
@@ -187,25 +189,25 @@ def get_avatar(region, realm, character_id):
 
 def leagueFrames():
     league_frames = {
-            'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
-            'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
-            'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
-            'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
-            'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
-            'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
-            'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
-            'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
-            'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
-            'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
-            'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
-            'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
-            'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
-            'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
-            'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
-            'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
-            'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
-            'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
-        }
+        'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
+        'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
+        'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
+        'EU_4': LeagueFrame.objects.get(region='eu', league=4).frame_max,
+        'EU_5': LeagueFrame.objects.get(region='eu', league=5).frame_max,
+        'EU_6': LeagueFrame.objects.get(region='eu', league=6).frame_max,
+        'US_1': LeagueFrame.objects.get(region='us', league=1).frame_max,
+        'US_2': LeagueFrame.objects.get(region='us', league=2).frame_max,
+        'US_3': LeagueFrame.objects.get(region='us', league=3).frame_max,
+        'US_4': LeagueFrame.objects.get(region='us', league=4).frame_max,
+        'US_5': LeagueFrame.objects.get(region='us', league=5).frame_max,
+        'US_6': LeagueFrame.objects.get(region='us', league=6).frame_max,
+        'KR_1': LeagueFrame.objects.get(region='kr', league=1).frame_max,
+        'KR_2': LeagueFrame.objects.get(region='kr', league=2).frame_max,
+        'KR_3': LeagueFrame.objects.get(region='kr', league=3).frame_max,
+        'KR_4': LeagueFrame.objects.get(region='kr', league=4).frame_max,
+        'KR_5': LeagueFrame.objects.get(region='kr', league=5).frame_max,
+        'KR_6': LeagueFrame.objects.get(region='kr', league=6).frame_max
+    }
     return league_frames
 
 
@@ -286,7 +288,8 @@ def form_character_data(clan_tag: str):
             1: 1,
             3: 2
         }
-        character_data = sorted(character_data, key=lambda k: (region_priority.get(k['region'], float('inf')), -k['mmr']))
+        character_data = sorted(character_data, key=lambda k: (
+            region_priority.get(k['region'], float('inf')), -k['mmr']))
         resp_status = status.HTTP_200_OK
         return [character_data, resp_status]
     else:

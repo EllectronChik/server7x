@@ -7,18 +7,20 @@ from asgiref.sync import async_to_sync
 
 # Create your models here.
 class Match(models.Model):
-    player_one = models.ForeignKey('Player', 
-                                   on_delete=models.PROTECT, 
-                                   related_name='player_one', 
+    player_one = models.ForeignKey('Player',
+                                   on_delete=models.PROTECT,
+                                   related_name='player_one',
                                    null=True, blank=True, default=None)
-    player_two = models.ForeignKey('Player', 
-                                   on_delete=models.PROTECT, 
-                                   related_name='player_two', 
+    player_two = models.ForeignKey('Player',
+                                   on_delete=models.PROTECT,
+                                   related_name='player_two',
                                    null=True, blank=True, default=None)
-    winner = models.ForeignKey('Player', on_delete=models.PROTECT, null=True, blank=True, default=None)
+    winner = models.ForeignKey(
+        'Player', on_delete=models.PROTECT, null=True, blank=True, default=None)
     tournament = models.ForeignKey('Tournament', on_delete=models.PROTECT)
     map = models.CharField(max_length=100, null=True, blank=True, default=None)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+
     def get_teams(self):
         teams = [self.player_one.team, self.player_two.team]
         return teams
@@ -29,14 +31,14 @@ class Match(models.Model):
 
     def __str__(self):
         return f"{self.player_one} vs {self.player_two}"
-    
+
     def clean(self):
         if (self.player_one == self.player_two and self.player_one is not None):
             raise ValidationError(f"Players can't be equal, {self.player_one}")
-        if (not (self.player_one is None) and not(self.player_two is None)):
+        if (not (self.player_one is None) and not (self.player_two is None)):
             if self.player_one.team == self.player_two.team:
                 raise ValidationError("Teams can't be equal")
-    
+
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
@@ -51,33 +53,38 @@ class UserDevice(models.Model):
 
 
 class Tournament(models.Model):
-    team_one = models.ForeignKey('Team', 
+    team_one = models.ForeignKey('Team',
                                  on_delete=models.PROTECT,
                                  related_name='team_one',)
-    team_two = models.ForeignKey('Team', 
+    team_two = models.ForeignKey('Team',
                                  on_delete=models.PROTECT,
                                  related_name='team_two',)
     match_start_time = models.DateTimeField()
     team_one_wins = models.IntegerField(default=0)
     team_two_wins = models.IntegerField(default=0)
-    winner = models.ForeignKey('Team', on_delete=models.PROTECT, null=True, blank=True, default=None, related_name='winner')
-    ask_for_other_time = models.DateTimeField(null=True, blank=True, default=None)
+    winner = models.ForeignKey('Team', on_delete=models.PROTECT,
+                               null=True, blank=True, default=None, related_name='winner')
+    ask_for_other_time = models.DateTimeField(
+        null=True, blank=True, default=None)
     ask_for_finished = models.BooleanField(null=True, blank=True, default=None)
-    asked_team = models.ForeignKey('Team', on_delete=models.PROTECT, null=True, blank=True, default=None, related_name='asked_team')
+    asked_team = models.ForeignKey('Team', on_delete=models.PROTECT,
+                                   null=True, blank=True, default=None, related_name='asked_team')
     season = models.ForeignKey('Season', on_delete=models.PROTECT)
     stage = models.IntegerField()
-    group = models.ForeignKey('GroupStage', on_delete=models.CASCADE, null=True, blank=True, default=None)
+    group = models.ForeignKey(
+        'GroupStage', on_delete=models.CASCADE, null=True, blank=True, default=None)
     is_finished = models.BooleanField()
     inline_number = models.IntegerField(null=True, blank=True, default=None)
-    next_stage_tournament = models.ForeignKey('Tournament', on_delete=models.CASCADE, null=True, blank=True, default=None, related_name='next_stage_tournament_related_name')
-    
+    next_stage_tournament = models.ForeignKey(
+        'Tournament', on_delete=models.CASCADE, null=True, blank=True, default=None, related_name='next_stage_tournament_related_name')
+
     def __str__(self):
         return f"{self.team_one} vs {self.team_two}"
-    
+
     def clean(self):
         if self.team_one == self.team_two:
             raise ValidationError("Teams can't be equal")
-    
+
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
@@ -98,7 +105,7 @@ class Schedule(models.Model):
 
     def __str__(self):
         return str(self.date_time)
-    
+
 
 class TournamentRegistration(models.Model):
     season = models.ForeignKey('Season', on_delete=models.PROTECT)
@@ -108,16 +115,18 @@ class TournamentRegistration(models.Model):
     def __str__(self):
         return f"{self.season} - {self.team}"
 
+
 class Season(models.Model):
     number = models.IntegerField()
     start_datetime = models.DateTimeField()
     is_finished = models.BooleanField()
     can_register = models.BooleanField()
-    winner = models.ForeignKey('Team', on_delete=models.PROTECT, null=True, blank=True, default=None, related_name='season_winner')
+    winner = models.ForeignKey('Team', on_delete=models.PROTECT, null=True,
+                               blank=True, default=None, related_name='season_winner')
 
     def __str__(self):
         return str(self.number)
-    
+
 
 class GroupStage(models.Model):
     groupMark = models.CharField(max_length=100)
@@ -130,7 +139,8 @@ class GroupStage(models.Model):
 
 class Player(models.Model):
     username = models.CharField(max_length=100)
-    avatar = models.URLField(default="http://localhost:8000/media/players/logo/default.svg")
+    avatar = models.URLField(
+        default="http://localhost:8000/media/players/logo/default.svg")
     mmr = models.IntegerField()
     league = models.ForeignKey('League', on_delete=models.PROTECT)
     race = models.ForeignKey('Race', on_delete=models.PROTECT)
@@ -138,12 +148,13 @@ class Player(models.Model):
     total_games = models.IntegerField()
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
-    region = models.IntegerField(choices=((1, 'US'), (2, 'EU'), (3, 'KR')), default=2)
+    region = models.IntegerField(
+        choices=((1, 'US'), (2, 'EU'), (3, 'KR')), default=2)
     battlenet_id = models.IntegerField(null=True, blank=True, default=None)
 
     def __str__(self):
         return self.username
-    
+
 
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -154,7 +165,7 @@ class Team(models.Model):
 
     def __str__(self):
         return self.name
-    
+
     def save(self, *args, **kwargs):
         try:
             this = Team.objects.get(id=self.id)
@@ -169,11 +180,12 @@ class Team(models.Model):
 
 class Region(models.Model):
     name = models.CharField(max_length=100)
-    flag_url = models.FileField(default='../media/country_flags/no_flag.svg', upload_to='country_flags/')
+    flag_url = models.FileField(
+        default='../media/country_flags/no_flag.svg', upload_to='country_flags/')
 
     def __str__(self):
         return self.name
-    
+
 
 class PlayerToTournament(models.Model):
     player = models.ForeignKey('Player', on_delete=models.PROTECT)
@@ -182,7 +194,7 @@ class PlayerToTournament(models.Model):
 
     def __str__(self):
         return self.player.username
-    
+
 
 class TeamResource(models.Model):
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
@@ -191,7 +203,7 @@ class TeamResource(models.Model):
 
     def __str__(self):
         return self.url
-    
+
 
 class Manager(models.Model):
     user = models.OneToOneField('auth.User', on_delete=models.PROTECT)
@@ -204,11 +216,10 @@ class Manager(models.Model):
 class ManagerContact(models.Model):
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
     url = models.URLField()
-    
 
     def __str__(self):
         return self.url
-    
+
 
 class Race(models.Model):
     name = models.CharField(max_length=100)

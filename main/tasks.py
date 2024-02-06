@@ -13,13 +13,16 @@ def daily_task():
         for league_id in range(1, 7):
             league = League.objects.get(id=league_id)
             logging.info(f'Updating league {league.name} for region {region}')
-            max_rating = asyncio.run(get_blizzard_league_data(region, league_id))
-            obj = LeagueFrame.objects.filter(region=region, league=league).first()
+            max_rating = asyncio.run(
+                get_blizzard_league_data(region, league_id))
+            obj = LeagueFrame.objects.filter(
+                region=region, league=league).first()
             if obj:
                 obj.frame_max = max_rating if max_rating is not None else obj.frame_max
                 obj.save()
             else:
-                LeagueFrame.objects.create(region=region, league=league, frame_max=max_rating)
+                LeagueFrame.objects.create(
+                    region=region, league=league, frame_max=max_rating)
 
 
 @app.task
@@ -44,10 +47,13 @@ def update_players_data():
                 player.username = fetched_players_by_ids[player.battlenet_id]['username']
                 player.region = fetched_players_by_ids[player.battlenet_id]['region']
                 player.realm = fetched_players_by_ids[player.battlenet_id]['realm']
-                player.league = League.objects.get(id=fetched_players_by_ids[player.battlenet_id]['league'])
-                player.race = Race.objects.get(id=fetched_players_by_ids[player.battlenet_id]['race'])
+                player.league = League.objects.get(
+                    id=fetched_players_by_ids[player.battlenet_id]['league'])
+                player.race = Race.objects.get(
+                    id=fetched_players_by_ids[player.battlenet_id]['race'])
                 player.mmr = fetched_players_by_ids[player.battlenet_id]['mmr']
-                avatar = get_avatar(player.region, player.realm, player.battlenet_id)
+                avatar = get_avatar(
+                    player.region, player.realm, player.battlenet_id)
                 if (avatar is not None):
                     player.avatar = avatar
                 player.save()
