@@ -23,10 +23,11 @@ from .utils import get_blizzard_data, distribute_teams_to_groups, image_compress
 config = configparser.ConfigParser()
 config.read('.ini')
 
+
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = '_limit'
-    max_page_size =  100
+    max_page_size = 100
 
 
 class TeamsViewSet(viewsets.ModelViewSet):
@@ -41,20 +42,22 @@ class TeamsViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(tag=tag)
         return queryset
 
-
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")  
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         logo = serializer.validated_data.get('logo')
         if logo:
-            image_file = image_compressor(logo, serializer.validated_data['tag'])
+            image_file = image_compressor(
+                logo, serializer.validated_data['tag'])
             serializer.validated_data['logo'] = image_file
         serializer.save(user=self.request.user)
 
     def perform_update(self, serializer):
         logo = serializer.validated_data.get('logo')
         if logo:
-            image_file = image_compressor(logo, Team.objects.get(id=serializer.instance.id).tag)
+            image_file = image_compressor(
+                logo, Team.objects.get(id=serializer.instance.id).tag)
             serializer.validated_data['logo'] = image_file
         serializer.save(user=self.request.user)
 
@@ -82,11 +85,13 @@ class PlayersViewSet(viewsets.ModelViewSet):
             elif serializer.validated_data['region'] == 3:
                 region = 'KR'
 
-            league = get_league(serializer.validated_data['mmr'], league_frames, region)
+            league = get_league(
+                serializer.validated_data['mmr'], league_frames, region)
             serializer.validated_data['league'] = league
-        
+
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -99,7 +104,8 @@ class ManagersViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
 
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -114,19 +120,19 @@ class ManagersViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-
 class ManagerContactsViewSet(viewsets.ModelViewSet):
     queryset = ManagerContact.objects.all()
     serializer_class = ManagerContactsSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
 
     def perform_create(self, serializer):
-        
+
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
-    
+
 
 class TeamResourcesViewSet(viewsets.ModelViewSet):
     queryset = TeamResource.objects.all()
@@ -135,7 +141,8 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -146,13 +153,13 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
         if team is not None:
             queryset = queryset.filter(team=team)
         return queryset
-    
+
 
 class SeasonsViewSet(viewsets.ModelViewSet):
     queryset = Season.objects.all()
     serializer_class = SeasonsSerializer
     permission_classes = (isAdminOrReadOnly, )
-    
+
     def get_object_or_404(self):
         number = self.kwargs.get('pk')
         try:
@@ -163,24 +170,27 @@ class SeasonsViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object_or_404()
         if (request.data.get('is_finished')):
-            highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by('-stage').values_list('stage', flat=True).distinct()[0]
+            highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by(
+                '-stage').values_list('stage', flat=True).distinct()[0]
             if (highest_stage == 999):
-                highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by('-stage').values_list('stage', flat=True).distinct()[1]
-            tournament = Tournament.objects.get(season=instance, group__isnull=True, stage=highest_stage)
+                highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by(
+                    '-stage').values_list('stage', flat=True).distinct()[1]
+            tournament = Tournament.objects.get(
+                season=instance, group__isnull=True, stage=highest_stage)
             instance.winner = tournament.winner if tournament.winner else None
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
-    
+
     def perform_create(self, serializer):
         try:
-            season = Season.objects.get(is_finished = False)
+            season = Season.objects.get(is_finished=False)
             if season:
                 raise exceptions.PermissionDenied("Season is already created")
         except Season.DoesNotExist:
             serializer.save()
-
 
 
 class ScheduleViewSet(viewsets.ModelViewSet):
@@ -196,11 +206,11 @@ class TournamentsViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         tournament = Tournament.objects.filter(
-            season = Season.objects.get(is_finished = False), 
-            stage = serializer.validated_data['stage'], 
-            team_one = serializer.validated_data['team_one'], 
-            team_two = serializer.validated_data['team_two'],
-            match_start_time = serializer.validated_data['match_start_time']).first()
+            season=Season.objects.get(is_finished=False),
+            stage=serializer.validated_data['stage'],
+            team_one=serializer.validated_data['team_one'],
+            team_two=serializer.validated_data['team_two'],
+            match_start_time=serializer.validated_data['match_start_time']).first()
         if (serializer.validated_data['team_one'] == serializer.validated_data['team_two']):
             raise exceptions.ValidationError("Teams can't be equal")
         if tournament:
@@ -208,11 +218,11 @@ class TournamentsViewSet(viewsets.ModelViewSet):
         if 'group' in serializer.validated_data:
             try:
                 tournament = Tournament.objects.get(
-                    season = Season.objects.get(is_finished = False),
-                    stage = serializer.validated_data['stage'],
-                    group = serializer.validated_data['group'],
-                    team_one = serializer.validated_data['team_one'],
-                    match_start_time = serializer.validated_data['match_start_time'],
+                    season=Season.objects.get(is_finished=False),
+                    stage=serializer.validated_data['stage'],
+                    group=serializer.validated_data['group'],
+                    team_one=serializer.validated_data['team_one'],
+                    match_start_time=serializer.validated_data['match_start_time'],
                 )
                 if tournament and serializer.validated_data['team_one']:
                     tournament.team_two = serializer.validated_data['team_two']
@@ -220,11 +230,11 @@ class TournamentsViewSet(viewsets.ModelViewSet):
             except Tournament.DoesNotExist:
                 try:
                     tournament = Tournament.objects.get(
-                        season = Season.objects.get(is_finished = False),
-                        stage = serializer.validated_data['stage'],
-                        group = serializer.validated_data['group'],
-                        team_two = serializer.validated_data['team_two'],
-                        match_start_time = serializer.validated_data['match_start_time'],
+                        season=Season.objects.get(is_finished=False),
+                        stage=serializer.validated_data['stage'],
+                        group=serializer.validated_data['group'],
+                        team_two=serializer.validated_data['team_two'],
+                        match_start_time=serializer.validated_data['match_start_time'],
                     )
                     if tournament and serializer.validated_data['team_two']:
                         tournament.team_one = serializer.validated_data['team_one']
@@ -232,11 +242,11 @@ class TournamentsViewSet(viewsets.ModelViewSet):
                 except Tournament.DoesNotExist:
                     try:
                         tournament = Tournament.objects.get(
-                            season = Season.objects.get(is_finished = False),
-                            stage = serializer.validated_data['stage'],
-                            team_one = serializer.validated_data['team_one'],
-                            team_two = serializer.validated_data['team_two'],
-                            match_start_time = serializer.validated_data['match_start_time'],
+                            season=Season.objects.get(is_finished=False),
+                            stage=serializer.validated_data['stage'],
+                            team_one=serializer.validated_data['team_one'],
+                            team_two=serializer.validated_data['team_two'],
+                            match_start_time=serializer.validated_data['match_start_time'],
                         )
                         if tournament and serializer.validated_data['group']:
                             tournament.group = serializer.validated_data['group']
@@ -244,33 +254,34 @@ class TournamentsViewSet(viewsets.ModelViewSet):
                     except Tournament.DoesNotExist:
                         try:
                             tournament = Tournament.objects.get(
-                                season = Season.objects.get(is_finished = False),
-                                stage = serializer.validated_data['stage'],
-                                group = serializer.validated_data['group'],
-                                team_two = serializer.validated_data['team_two'],
-                                team_one = serializer.validated_data['team_one'],
+                                season=Season.objects.get(is_finished=False),
+                                stage=serializer.validated_data['stage'],
+                                group=serializer.validated_data['group'],
+                                team_two=serializer.validated_data['team_two'],
+                                team_one=serializer.validated_data['team_one'],
                             )
                             if tournament and serializer.validated_data['match_start_time']:
-                                tournament.match_start_time = serializer.validated_data['match_start_time']
+                                tournament.match_start_time = serializer.validated_data[
+                                    'match_start_time']
                                 tournament.save()
                         except Tournament.DoesNotExist:
                             try:
                                 tournament = Tournament.objects.get(
-                                    season = Season.objects.get(is_finished = False),
-                                    group = serializer.validated_data['group'],
-                                    team_one = serializer.validated_data['team_one'],
-                                    team_two = serializer.validated_data['team_two'],
-                                    match_start_time = serializer.validated_data['match_start_time'],
+                                    season=Season.objects.get(
+                                        is_finished=False),
+                                    group=serializer.validated_data['group'],
+                                    team_one=serializer.validated_data['team_one'],
+                                    team_two=serializer.validated_data['team_two'],
+                                    match_start_time=serializer.validated_data['match_start_time'],
                                 )
                                 if tournament and serializer.validated_data['stage']:
                                     tournament.stage = serializer.validated_data['stage']
-                                    
+
                                     tournament.save()
                             except Tournament.DoesNotExist:
                                 serializer.save()
         else:
             serializer.save()
-
 
 
 class RegionsViewSet(viewsets.ModelViewSet):
@@ -282,7 +293,7 @@ class RegionsViewSet(viewsets.ModelViewSet):
         if name is not None:
             return Region.objects.filter(name=name)
         return Region.objects.all().order_by('name')
-    
+
 
 class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
     queryset = TournamentRegistration.objects.all()
@@ -291,10 +302,11 @@ class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
-    
+
 
 class MatchesViewSet(viewsets.ModelViewSet):
     serializer_class = MatchesSerializer
@@ -312,9 +324,10 @@ class MatchesViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        
+
         if serializer.validated_data['user'] != self.request.user:
-            raise exceptions.PermissionDenied("You can only create objects with your own id")
+            raise exceptions.PermissionDenied(
+                "You can only create objects with your own id")
         else:
             serializer.save(user=self.request.user)
 
@@ -325,7 +338,7 @@ class MatchPlayersViewSet(viewsets.ViewSet):
             match = Match.objects.get(pk=match_id)
         except Match.DoesNotExist:
             return Response({"error": "Match not found"}, status=404)
-        
+
         players = match.get_players()
         serializer = PlayersSerializer(players, many=True)
         return Response(serializer.data)
@@ -337,7 +350,7 @@ class MatchTeamsViewSet(viewsets.ViewSet):
             match = Match.objects.get(pk=match_id)
         except Match.DoesNotExist:
             return Response({"error": "Match not found"}, status=404)
-        
+
         teams = match.get_teams()
         serializer = TeamsSerializer(teams, many=True)
         return Response(serializer.data)
@@ -353,28 +366,29 @@ class LeagueViewSet(viewsets.ModelViewSet):
     queryset = League.objects.all()
     serializer_class = LeagueSerializer
     permission_classes = (isAdminOrReadOnly, )
-    
+
 
 class UserDeviceViewSet(viewsets.ModelViewSet):
     queryset = UserDevice.objects.all()
     serializer_class = UserDevicesSerializer
-    permission_classes = (permissions.IsAdminUser | permissions.IsAuthenticated, )
-    
+    permission_classes = (permissions.IsAdminUser |
+                          permissions.IsAuthenticated, )
+
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         user_devices = queryset.filter(user=self.request.user)
         device_values = user_devices.values_list('device', flat=True)
         return Response(list(device_values))
 
-    
     def patch(self, request, *args, **kwargs):
         if request.data.get('action') not in ['increase', 'decrease']:
             return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             user_device = UserDevice.objects.get(user=self.request.user.id)
         except UserDevice.DoesNotExist:
-            user_device = UserDevice.objects.create(user=self.request.user, device=0)
-        
+            user_device = UserDevice.objects.create(
+                user=self.request.user, device=0)
+
         current_device_value = user_device.device
 
         if request.data.get('action') == 'increase':
@@ -383,16 +397,15 @@ class UserDeviceViewSet(viewsets.ModelViewSet):
             new_device_value = current_device_value - 1
         else:
             return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         user_device.device = new_device_value
         user_device.save()
 
         if new_device_value == 0:
             logout_user(self.request)
-            
 
         return Response({"device": new_device_value}, status=status.HTTP_200_OK)
-    
+
 
 class PlayerToTournamentViewSet(viewsets.ModelViewSet):
     queryset = PlayerToTournament.objects.all()
@@ -409,12 +422,14 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
         except Player.DoesNotExist:
             return Response({"error": "Player not found"}, status=status.HTTP_404_NOT_FOUND)
         try:
-            player_to_tournament = PlayerToTournament.objects.get(player=player, user=user)
+            player_to_tournament = PlayerToTournament.objects.get(
+                player=player, user=user)
             player_to_tournament.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except PlayerToTournament.DoesNotExist:
             try:
-                player_to_tournament = PlayerToTournament.objects.get(player=player)
+                player_to_tournament = PlayerToTournament.objects.get(
+                    player=player)
                 if player_to_tournament:
                     return Response({"error": "You are not owner of this player"}, status=status.HTTP_403_FORBIDDEN)
             except PlayerToTournament.DoesNotExist:
@@ -435,8 +450,9 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
             return PlayerToTournament.objects.filter(user=user, Season=season)
         return PlayerToTournament.objects.all()
 
+
 class GetClanMembers(APIView):
-    def get(self, request, clan_tag):        
+    def get(self, request, clan_tag):
         try:
             character_data = form_character_data(clan_tag)
             if character_data[1] == status.HTTP_200_OK:
@@ -499,7 +515,7 @@ def get_team_and_related_data(request):
     if user_id is None:
         return Response({"error": "User ID is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try: 
+    try:
         manager = Manager.objects.get(user=user_id)
     except:
         return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -518,7 +534,8 @@ def get_team_and_related_data(request):
         season = Season.objects.get(is_finished=False)
     except:
         season = None
-    is_reg_to_current_season = TournamentRegistration.objects.filter(user=user_id, team=team, season=season).exists()
+    is_reg_to_current_season = TournamentRegistration.objects.filter(
+        user=user_id, team=team, season=season).exists()
 
     team_data = {
         "team_id": team_id,
@@ -527,24 +544,22 @@ def get_team_and_related_data(request):
         "team_logo_url": team_logo_url,
         "team_region_name": team_region_name,
         "team_region_flag": team_region_flag,
-        "players": [{"id": player.id, 
-                     "username": player.username, 
-                     "avatar": player.avatar, 
-                     "mmr": player.mmr, 
-                     "league": player.league_id, 
-                     "race": player.race_id, 
-                     "wins": player.wins, 
-                     "total_games": player.total_games, 
-                     "team": player.team_id, 
-                     "user": player.user_id, 
-                     "region": player.region} for player in players]
-,
+        "players": [{"id": player.id,
+                     "username": player.username,
+                     "avatar": player.avatar,
+                     "mmr": player.mmr,
+                     "league": player.league_id,
+                     "race": player.race_id,
+                     "wins": player.wins,
+                     "total_games": player.total_games,
+                     "team": player.team_id,
+                     "user": player.user_id,
+                     "region": player.region} for player in players],
         "team_resources": list(team_resources.values()),
         "is_reg_to_current_season": is_reg_to_current_season
     }
 
     return Response(team_data)
-
 
 
 @api_view(['GET'])
@@ -557,14 +572,14 @@ def get_league_by_mmr(request):
         return Response({"error": "MMR is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
     if region is None:
         return Response({"error": "Region is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
-    if mmr=='NaN':
+    if mmr == 'NaN':
         return Response({"league": 0}, status=status.HTTP_200_OK)
     try:
         resp = get_league(mmr, league_frames, region)
         return Response({"league": resp}, status=status.HTTP_200_OK)
     except:
         return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
 
 @api_view(['PATCH'])
 @permission_classes([permissions.IsAdminUser])
@@ -573,10 +588,10 @@ def user_staff_status_true(request):
         user = User.objects.get(username=request.data.get('username'))
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     if user.is_staff:
         return Response({"error": "User is already staff"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     user.is_staff = True
     user.save()
 
@@ -590,10 +605,10 @@ def user_staff_status_false(request):
         user = User.objects.get(username=request.data.get('username'))
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     if not user.is_staff:
         return Response({"error": "User is already not staff"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     user.is_staff = False
     user.save()
 
@@ -602,7 +617,8 @@ def user_staff_status_false(request):
 
 @api_view(['GET'])
 def get_current_tournaments(request):
-    tournaments = Tournament.objects.filter(match_start_time__lte = timezone.now(), is_finished = False).order_by('match_start_time')
+    tournaments = Tournament.objects.filter(match_start_time__lte=timezone.now(
+    ), is_finished=False).order_by('match_start_time')
     serializer = TournamentsSerializer(tournaments, many=True)
     return Response(serializer.data)
 
@@ -610,7 +626,7 @@ def get_current_tournaments(request):
 @api_view(['GET'])
 def get_current_season(request):
     try:
-        season = Season.objects.get(is_finished = False)
+        season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
     if season.start_datetime < timezone.now():
@@ -653,13 +669,15 @@ def randomizeGroups(request):
         return Response({"error": "groupCnt must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
     if int(group_cnt) <= 0:
         return Response({"error": "groupCnt must be greater than 0"}, status=status.HTTP_400_BAD_REQUEST)
-    
-    tournamentRegistrations = TournamentRegistration.objects.filter(season=season)
-    distr = distribute_teams_to_groups(list(tournamentRegistrations), group_cnt)   
+
+    tournamentRegistrations = TournamentRegistration.objects.filter(
+        season=season)
+    distr = distribute_teams_to_groups(
+        list(tournamentRegistrations), group_cnt)
     if distr['status'] != 201:
         return Response({"error": distr["error"]}, status=distr['status'])
     groupStages = GroupStage.objects.filter(season=season)
-    
+
     responseData = []
     for groupStage in groupStages:
         groupInfo = {
@@ -679,10 +697,12 @@ def getPlayerToCurrentTournament(request):
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
-    user = request.user 
+    user = request.user
     if season:
-        playerToTournaments = PlayerToTournament.objects.filter(Season=season, user=user)
-        serializer = PlayerToTournamentSerializer(playerToTournaments, many=True)
+        playerToTournaments = PlayerToTournament.objects.filter(
+            Season=season, user=user)
+        serializer = PlayerToTournamentSerializer(
+            playerToTournaments, many=True)
         return Response(serializer.data)
     return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -694,7 +714,8 @@ def registredToCurrentSeasonTeams(request):
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
-    tournamentRegistrations = TournamentRegistration.objects.filter(season=season)
+    tournamentRegistrations = TournamentRegistration.objects.filter(
+        season=season)
     responseData = []
     for tournamentRegistration in tournamentRegistrations:
         team_id = tournamentRegistration.team.id
@@ -734,17 +755,21 @@ def postTeamToGroup(request):
     if teamId is None:
         return Response({"error": "teamId is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        team = TournamentRegistration.objects.get(team_id=teamId, season__is_finished=False)
+        team = TournamentRegistration.objects.get(
+            team_id=teamId, season__is_finished=False)
     except TournamentRegistration.DoesNotExist:
         return Response({"error": "Team not found"}, status=status.HTTP_404_NOT_FOUND)
     season = Season.objects.get(is_finished=False)
     try:
-        groupStage = GroupStage.objects.get(season=season, groupMark=groupStageMark)
+        groupStage = GroupStage.objects.get(
+            season=season, groupMark=groupStageMark)
     except GroupStage.DoesNotExist:
-        groupStage = GroupStage.objects.create(season=season, groupMark=groupStageMark)
+        groupStage = GroupStage.objects.create(
+            season=season, groupMark=groupStageMark)
 
     try:
-        otherGroup = GroupStage.objects.exclude(id=groupStage.id).get(season=season, teams=team.team)
+        otherGroup = GroupStage.objects.exclude(
+            id=groupStage.id).get(season=season, teams=team.team)
         otherGroup.teams.remove(team.team)
         otherGroup.save()
         if otherGroup.teams.count() == 0:
@@ -812,13 +837,14 @@ def getToursByManager(request):
     except Manager.DoesNotExist:
         return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
     team = manager.team
-    tournaments = Tournament.objects.filter(Q(team_one=team) | Q(team_two=team), season=season)
+    tournaments = Tournament.objects.filter(
+        Q(team_one=team) | Q(team_two=team), season=season)
     if tournaments.count() == 0:
         return Response([])
     tournaments = tournaments.order_by('match_start_time')
     responseData = []
     for tournament in tournaments:
-        if tournament.asked_team is not None: 
+        if tournament.asked_team is not None:
             if tournament.asked_team.id != team.id:
                 timeSuggested = tournament.ask_for_other_time
             else:
@@ -828,7 +854,8 @@ def getToursByManager(request):
         opponent = tournament.team_two if tournament.team_one == team else tournament.team_one
         team_in_tour_num = 1 if tournament.team_one == team else 2
         opponent_data = TeamsSerializer(opponent).data
-        opp_players_to_tournament = PlayerToTournament.objects.filter(user=opponent.user, Season=season)
+        opp_players_to_tournament = PlayerToTournament.objects.filter(
+            user=opponent.user, Season=season)
         opp_players_to_tournament_data = []
         for player in opp_players_to_tournament:
             opp_players_to_tournament_data.append({
@@ -915,7 +942,7 @@ def acceptTimeSuggestion(request):
     tournament.asked_team = None
     tournament.save()
     return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -927,7 +954,8 @@ def get_players_by_teams(request):
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
-    teams = TournamentRegistration.objects.filter(season=season).select_related('team', 'user').prefetch_related('user__playertotournament_set')
+    teams = TournamentRegistration.objects.filter(season=season).select_related(
+        'team', 'user').prefetch_related('user__playertotournament_set')
     response = {}
     players = {}
     for team in teams:
