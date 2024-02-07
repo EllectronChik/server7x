@@ -981,23 +981,9 @@ class InfoConsumer(AsyncConsumer):
                 tournaments = await sync_to_async(Tournament.objects.filter)(season=season)
                 await sync_to_async(self.group_update_handler)(instance=tournaments)
             except Tournament.DoesNotExist:
-                await self.send({
-                    'type': 'websocket.send',
-                    'text': json.dumps({
-                        'state': 0,
-                        "previusSeasons": self.previus_seasons,
-                        "playersByLeague": self.players_by_league
-                    })
-                })
+                pass
             except TypeError:
-                await self.send({
-                    'type': 'websocket.send',
-                    'text': json.dumps({
-                        'state': 0,
-                        "previusSeasons": self.previus_seasons,
-                        "playersByLeague": self.players_by_league
-                    })
-                })
+                pass
             post_save.connect(self.group_update_handler, sender=Tournament)
         except Season.DoesNotExist:
             await self.send({
