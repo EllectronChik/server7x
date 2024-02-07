@@ -40,6 +40,7 @@ class ManagerContactsSerializer(serializers.ModelSerializer):
 
 class SeasonsSerializer(serializers.ModelSerializer):
     is_season_started = serializers.SerializerMethodField()
+    winner = serializers.SerializerMethodField()
 
     class Meta:
         model = Season
@@ -47,6 +48,11 @@ class SeasonsSerializer(serializers.ModelSerializer):
 
     def get_is_season_started(self, obj):
         return timezone.now() >= obj.start_datetime
+
+    def get_winner(self, obj):
+        if obj.winner:
+            return obj.winner.name
+        return None
 
 
 class ScheduleSerializer(serializers.ModelSerializer):
