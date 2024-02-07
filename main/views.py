@@ -13,12 +13,10 @@ from rest_framework.views import APIView
 from djoser.utils import logout_user
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import Q, Prefetch
+from django.db.models import Q, F
 
 from .permissions import *
 from .utils import get_blizzard_data, distribute_teams_to_groups, image_compressor
-
-# Create your views here.
 
 config = configparser.ConfigParser()
 config.read('.ini')
@@ -100,6 +98,7 @@ class ManagersViewSet(viewsets.ModelViewSet):
     queryset = Manager.objects.all()
     serializer_class = ManagersSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
 
@@ -124,6 +123,7 @@ class ManagerContactsViewSet(viewsets.ModelViewSet):
     queryset = ManagerContact.objects.all()
     serializer_class = ManagerContactsSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
 
@@ -138,6 +138,7 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
     queryset = TeamResource.objects.all()
     serializer_class = TeamResourcesSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly,)
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
@@ -159,6 +160,7 @@ class SeasonsViewSet(viewsets.ModelViewSet):
     queryset = Season.objects.all()
     serializer_class = SeasonsSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def get_object_or_404(self):
         number = self.kwargs.get('pk')
@@ -197,12 +199,14 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = Schedule.objects.all()
     serializer_class = ScheduleSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
 
 class TournamentsViewSet(viewsets.ModelViewSet):
     queryset = Tournament.objects.all()
     serializer_class = TournamentsSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
         tournament = Tournament.objects.filter(
@@ -287,6 +291,7 @@ class TournamentsViewSet(viewsets.ModelViewSet):
 class RegionsViewSet(viewsets.ModelViewSet):
     serializer_class = RegionsSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         name = self.request.query_params.get('name')
@@ -299,6 +304,7 @@ class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
     queryset = TournamentRegistration.objects.all()
     serializer_class = TournamentRegistrationSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
         if serializer.validated_data['user'] != self.request.user:
@@ -311,6 +317,7 @@ class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
 class MatchesViewSet(viewsets.ModelViewSet):
     serializer_class = MatchesSerializer
     permission_classes = (canEditMatchField,)
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         queryset = Match.objects.all()
@@ -360,12 +367,14 @@ class RaceViewSet(viewsets.ModelViewSet):
     queryset = Race.objects.all()
     serializer_class = RaceSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
 
 class LeagueViewSet(viewsets.ModelViewSet):
     queryset = League.objects.all()
     serializer_class = LeagueSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
 
 class UserDeviceViewSet(viewsets.ModelViewSet):
@@ -373,6 +382,7 @@ class UserDeviceViewSet(viewsets.ModelViewSet):
     serializer_class = UserDevicesSerializer
     permission_classes = (permissions.IsAdminUser |
                           permissions.IsAuthenticated, )
+    pagination_class = CustomPageNumberPagination
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -411,6 +421,7 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
     queryset = PlayerToTournament.objects.all()
     serializer_class = PlayerToTournamentSerializer
     permission_classes = (isAdminOrOwnerOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def destroy(self, request, *args, **kwargs):
         player_id = self.kwargs.get('pk')
@@ -480,6 +491,7 @@ class groupStageViewSet(viewsets.ModelViewSet):
     queryset = GroupStage.objects.all()
     serializer_class = groupStageSerializer
     permission_classes = (isAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         season = self.request.query_params.get('season')
