@@ -51,6 +51,7 @@ urlpatterns = [
     path('api/v1/getToursByManager/', views.getToursByManager, name='getToursByManager'),
     path('api/v1/randomizeGroups/', views.randomizeGroups, name='randomizeGroups'),
     path('api/v1/getPlayersByTeam/', views.get_players_by_teams, name='getPlayersByTeam'),
+    path('api/v1/getSeasonData/<int:season>/', views.get_season_by_number, name='get_season_data'),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
     path('api/v1/auth/', include('djoser.urls')),
