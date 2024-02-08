@@ -16,7 +16,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q, F
 
 from .permissions import *
-from .utils import get_blizzard_data, distribute_teams_to_groups, image_compressor
+from .utils import distribute_teams_to_groups, image_compressor, get_season_data
 
 config = configparser.ConfigParser()
 config.read('.ini')
@@ -982,3 +982,11 @@ def get_players_by_teams(request):
             return Response({"error": "Team with id " + str(team.team.pk) + " not found"}, status=status.HTTP_404_NOT_FOUND)
     sorted_response = dict(sorted(response.items(), key=lambda x: x[0]))
     return Response(sorted_response)
+
+
+@api_view(['GET'])
+def get_season_by_number(request, season):
+    groups_data, playoff_data = get_season_data(season)
+    if groups_data is None and playoff_data is None:
+        return Response({"error": "Season with number " + str(season) + " not found"}, status=status.HTTP_404_NOT_FOUND)
+    return Response({"groups": groups_data, "playoff": playoff_data})
