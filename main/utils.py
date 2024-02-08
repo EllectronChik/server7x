@@ -4,10 +4,11 @@ import random
 import requests
 from rest_framework import status
 from rest_framework.response import Response
-from main.models import GroupStage, LeagueFrame
+from main.models import GroupStage, LeagueFrame, Season, Tournament, Match
 from PIL import Image
 from io import BytesIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db.models import Max
 
 
 config = configparser.ConfigParser()
@@ -294,3 +295,50 @@ def form_character_data(clan_tag: str):
         return [character_data, resp_status]
     else:
         return [None, status.HTTP_404_NOT_FOUND]
+
+
+def get_season_data(season):
+    season = Season.objects.filter(number=season).prefetch_related('groupstage_set', 'tournament_set')
+    season_first = season.first()
+    if (not season_first):
+        return None, None
+    groups = season_first.groupstage_set.all()
+    tournaments_in_group = season_first.tournament_set.filter(group__isnull=False)
+    wins = {}
+    playoff_data = {}
+    for tournament in tournaments_in_group:
+        if tournament.winner:
+            wins[tournament.winner.pk] = wins.get(
+                tournament.winner.pk, 0) + 1
+    max_stage = tournaments_in_group.aggregate(Max('stage'))['stage__max']
+    stages = {}
+    if (max_stage):
+        for stage in range(1, max_stage + 1):
+            tournaments = season_first.tournament_set.filter(
+                group__isnull=True, stage=stage).order_by('inline_number').prefetch_related('match_set')
+            for tournament in tournaments:
+                matches = tournament.match_set.all()
+                team_one_wins = 0
+                team_two_wins = 0
+                for match in matches:
+                    if match.winner and match.winner.team == tournament.team_one:
+                        team_one_wins += 1
+                    elif match.winner and match.winner.team == tournament.team_two:
+                        team_two_wins += 1
+                stages[str(tournament.inline_number)] = {
+                    'teamOne': tournament.team_one.name,
+                    'teamTwo': tournament.team_two.name,
+                    'teamOneWins': team_one_wins,
+                    'teamTwoWins': team_two_wins,
+                    'winner': tournament.winner.name if tournament.winner else None
+                }
+            if stages:
+                playoff_data[str(stage)] = stages
+            stages = {}
+    groups_data = {}
+    for group in groups:
+        teams_data = {}
+        for team in group.teams.all():
+            teams_data[str(team.name)] = wins.get(team.pk, 0)
+        groups_data[str(group.groupMark)] = teams_data
+    return groups_data, playoff_data

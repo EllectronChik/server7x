@@ -14,9 +14,10 @@ from main.models import Tournament, Match, Player, Manager, Season, Team, GroupS
 from django.contrib.auth.models import User
 from channels.layers import get_channel_layer
 from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament, SeasonsSerializer
-from django.db.models import Q, Max
+from django.db.models import Q
 from django.utils import timezone
 from django.core.exceptions import ValidationError, FieldDoesNotExist
+from main.utils import get_season_data
 
 env = environ.Env()
 environ.Env.read_env(os.path.join(settings.BASE_DIR, '.env'))
@@ -1063,47 +1064,7 @@ class InfoConsumer(AsyncConsumer):
                 }
             )
         else:
-            groups = GroupStage.objects.filter(season=season)
-            tournaments_in_group = Tournament.objects.filter(
-                season=season, group__isnull=False)
-            wins = {}
-            playoff_data = {}
-            for tournament in tournaments_in_group:
-                if tournament.winner:
-                    wins[tournament.winner.pk] = wins.get(
-                        tournament.winner.pk, 0) + 1
-            max_stage = Tournament.objects.filter(
-                season=season, group__isnull=True).aggregate(Max('stage'))['stage__max']
-            stages = {}
-            if (max_stage):
-                for stage in range(1, max_stage + 1):
-                    tournaments = Tournament.objects.filter(
-                        season=season, group__isnull=True, stage=stage).order_by('inline_number')
-                    for tournament in tournaments:
-                        matches = Match.objects.filter(tournament=tournament)
-                        team_one_wins = 0
-                        team_two_wins = 0
-                        for match in matches:
-                            if match.winner and match.winner.team == tournament.team_one:
-                                team_one_wins += 1
-                            elif match.winner and match.winner.team == tournament.team_two:
-                                team_two_wins += 1
-                        stages[str(tournament.inline_number)] = {
-                            'teamOne': tournament.team_one.name,
-                            'teamTwo': tournament.team_two.name,
-                            'teamOneWins': team_one_wins,
-                            'teamTwoWins': team_two_wins,
-                            'winner': tournament.winner.name if tournament.winner else None
-                        }
-                    if stages:
-                        playoff_data[str(stage)] = stages
-                    stages = {}
-            groups_data = {}
-            for group in groups:
-                teams_data = {}
-                for team in group.teams.all():
-                    teams_data[str(team.name)] = wins.get(team.pk, 0)
-                groups_data[str(group.groupMark)] = teams_data
+            groups_data, playoff_data = get_season_data(season.number)
             if groups_data:
                 async_to_sync(channel_layer.group_send)(
                     f'groups_{self.group_id}',
