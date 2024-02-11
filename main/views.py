@@ -291,7 +291,6 @@ class TournamentsViewSet(viewsets.ModelViewSet):
 class RegionsViewSet(viewsets.ModelViewSet):
     serializer_class = RegionsSerializer
     permission_classes = (isAdminOrReadOnly, )
-    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         name = self.request.query_params.get('name')
@@ -990,3 +989,105 @@ def get_season_by_number(request, season):
     if groups_data is None and playoff_data is None:
         return Response({"error": "Season with number " + str(season) + " not found"}, status=status.HTTP_404_NOT_FOUND)
     return Response({"groups": groups_data, "playoff": playoff_data})
+
+
+@api_view(['GET'])
+def get_team_by_id(request, team_id):
+    try:
+        team = Team.objects.get(id=team_id)
+    except Team.DoesNotExist:
+        return Response({"error": "Team with id " + str(team_id) + " not found"}, status=status.HTTP_404_NOT_FOUND)
+    team_resources = TeamResource.objects.filter(team=team)
+    try:
+        manager = Manager.objects.get(team=team)
+        manager_contact = ManagerContact.objects.filter(user=manager.user)
+    except Manager.DoesNotExist:
+        manager = None
+        manager_contact = None
+    players = Player.objects.filter(team=team)
+    tournaments = Tournament.objects.filter(
+        Q(team_one=team) | Q(team_two=team), is_finished=True)
+    tournaments_data = []
+    for tournament in tournaments:
+        tournaments_data.append({
+            "id": tournament.id,
+            "season": tournament.season.number,
+            "matchStartTime": tournament.match_start_time,
+            "wins": tournament.team_one_wins if tournament.team_one == team else tournament.team_two_wins,
+            "opponent": tournament.team_two.name if tournament.team_one == team else tournament.team_one.name,
+            "opponentWins": tournament.team_two_wins if tournament.team_one == team else tournament.team_one_wins,
+        })
+    return Response(
+        {
+            "team": TeamsSerializer(team).data,
+            "teamRegion": {"url": team.region.flag_url.url, "name": team.region.name},
+            "teamResources": TeamResourcesSerializer(team_resources, many=True).data,
+            "manager": manager.user.username if manager is not None else None,
+            "managerContacts": ManagerContactsSerializer(manager_contact, many=True).data,
+            "players": PlayersSerializer(players, many=True).data,
+            "tournaments": tournaments_data
+        })
+
+
+@api_view(['GET'])
+def get_player_by_id(request, player_id):
+    try:
+        player = Player.objects.get(id=player_id)
+    except Player.DoesNotExist:
+        return Response({"error": "Player with id " + str(player_id) + " not found"}, status=status.HTTP_404_NOT_FOUND)
+    related_matches = Match.objects.filter(Q(player_one=player) | Q(
+        player_two=player)).select_related('player_one', 'player_two')
+    matches_data = []
+    for match in related_matches:
+        opponent = match.player_two if match.player_one == player else match.player_one
+        opponent_id = opponent.id
+        opponent_name = opponent.username
+        opponent_tag = opponent.team.tag
+        matches_data.append({
+            "id": match.id,
+            "map": match.map,
+            "opponent": opponent_name,
+            "opponentTag": opponent_tag,
+            "opponentId": opponent_id,
+            "winner": True if match.winner == player else False,
+        })
+    return Response({"player": PlayersSerializer(player).data, "matches": matches_data})
+
+
+@api_view(['GET'])
+def get_tournament_by_id(request, tournament_id):
+    try:
+        tournament = Tournament.objects.get(id=tournament_id)
+    except Tournament.DoesNotExist:
+        return Response({"error": "Tournament with id " + str(tournament_id) + " not found"}, status=status.HTTP_404_NOT_FOUND)
+    tournament_data = {
+        "id": tournament.id,
+        "season": tournament.season.number,
+        "matchStartTime": tournament.match_start_time,
+        "teamOne": tournament.team_one.name,
+        "teamOneId": tournament.team_one.id,
+        "teamOneLogo": tournament.team_one.logo.url if tournament.team_one.logo else None,
+        "teamTwo": tournament.team_two.name,
+        "teamTwoId": tournament.team_two.id,
+        "teamTwoLogo": tournament.team_two.logo.url if tournament.team_two.logo else None,
+        "teamOneWins": tournament.team_one_wins,
+        "teamTwoWins": tournament.team_two_wins,
+    }
+    related_matches = Match.objects.filter(tournament=tournament)
+    matches_data = []
+    for match in related_matches:
+        if (match.winner is not None):
+            winner = True if match.winner == match.player_one else False
+        else:
+            winner = None
+        matches_data.append({
+            "id": match.id,
+            "map": match.map,
+            "playerOneId": match.player_one.id,
+            "playerTwoId": match.player_two.id,
+            "playerOne": match.player_one.username,
+            "playerTwo": match.player_two.username,
+            "winner":  winner,
+        })
+
+    return Response({"tournament": tournament_data, "matches": matches_data})
