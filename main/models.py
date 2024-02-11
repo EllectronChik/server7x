@@ -199,10 +199,11 @@ class PlayerToTournament(models.Model):
 class TeamResource(models.Model):
     team = models.ForeignKey('Team', on_delete=models.PROTECT)
     url = models.URLField()
+    name = models.CharField(max_length=100)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
 
     def __str__(self):
-        return self.url
+        return self.name
 
 
 class Manager(models.Model):
