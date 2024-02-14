@@ -1,5 +1,4 @@
 import configparser
-import requests
 
 from main.models import *
 from main.serializers import *
@@ -425,6 +424,7 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         player_id = self.kwargs.get('pk')
         user = request.user
+        season = Season.objects.get(is_finished=False)
         if user.is_anonymous:
             return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
         try:
@@ -433,7 +433,7 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
             return Response({"error": "Player not found"}, status=status.HTTP_404_NOT_FOUND)
         try:
             player_to_tournament = PlayerToTournament.objects.get(
-                player=player, user=user)
+                player=player, user=user, Season=season)
             player_to_tournament.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except PlayerToTournament.DoesNotExist:
@@ -470,7 +470,7 @@ class GetClanMembers(APIView):
             else:
                 raise Exception(f"Error {character_data[1]}")
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": str(e)}, status=character_data[1] if character_data[1] else status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GetMemberLogo(APIView):
@@ -534,7 +534,7 @@ def get_team_and_related_data(request):
     team = manager.team
     players = Player.objects.filter(team=team)
     team_resources = TeamResource.objects.filter(team=team)
-
+    manager_resources = ManagerContact.objects.filter(user=user_id)
     team_id = team.id
     team_name = team.name
     team_tag = team.tag
@@ -549,12 +549,12 @@ def get_team_and_related_data(request):
         user=user_id, team=team, season=season).exists()
 
     team_data = {
-        "team_id": team_id,
-        "team_name": team_name,
-        "team_tag": team_tag,
-        "team_logo_url": team_logo_url,
-        "team_region_name": team_region_name,
-        "team_region_flag": team_region_flag,
+        "teamId": team_id,
+        "teamName": team_name,
+        "teamTag": team_tag,
+        "teamLogoUrl": team_logo_url,
+        "teamRegionName": team_region_name,
+        "teamRegionFlag": team_region_flag,
         "players": [{"id": player.id,
                      "username": player.username,
                      "avatar": player.avatar,
@@ -562,12 +562,14 @@ def get_team_and_related_data(request):
                      "league": player.league_id,
                      "race": player.race_id,
                      "wins": player.wins,
+                     "battlenet_id": player.battlenet_id,
                      "total_games": player.total_games,
                      "team": player.team_id,
                      "user": player.user_id,
                      "region": player.region} for player in players],
-        "team_resources": list(team_resources.values()),
-        "is_reg_to_current_season": is_reg_to_current_season
+        "teamResources": list(team_resources.values()),
+        "managerResources": manager_resources.values(),
+        "isRegToCurrentSeason": is_reg_to_current_season
     }
 
     return Response(team_data)
@@ -1091,3 +1093,167 @@ def get_tournament_by_id(request, tournament_id):
         })
 
     return Response({"tournament": tournament_data, "matches": matches_data})
+
+
+@api_view(['GET'])
+def get_statistics(request):
+    seasons = Season.objects.all().prefetch_related('tournamentregistration_set')
+    in_season_teams = {}
+    max_cnt = 0
+    for season in seasons:
+        cnt = 0
+        for _ in season.tournamentregistration_set.all():
+            cnt += 1
+        if (cnt > max_cnt):
+            max_cnt = cnt
+        in_season_teams[season.number] = cnt
+    players = Player.objects.all()
+    players_cnt = Player.objects.all().count()
+    player_gm_league_cnt = players.filter(league=7).count()
+    player_m_league_cnt = players.filter(league=6).count()
+    player_dm_league_cnt = players.filter(league=5).count()
+    other_leagues_cnt = players_cnt - player_gm_league_cnt - \
+        player_m_league_cnt - player_dm_league_cnt
+    player_zerg_cnt = players.filter(race=1).count()
+    player_terran_cnt = players.filter(race=2).count()
+    player_protoss_cnt = players.filter(race=3).count()
+    player_random_cnt = players.filter(race=4).count()
+    games = Match.objects.filter(
+        player_one__isnull=False, player_two__isnull=False).prefetch_related('player_one', 'player_two')
+    matches_cnt = games.count()
+    tvz = games.filter(Q(player_one__race=2, player_two__race=1)
+                       | Q(player_one__race=1, player_two__race=2))
+    tvp = games.filter(Q(player_one__race=2, player_two__race=3)
+                       | Q(player_one__race=3, player_two__race=2))
+    pvz = games.filter(Q(player_one__race=3, player_two__race=1)
+                       | Q(player_one__race=1, player_two__race=3))
+    tvz_cnt = tvz.count()
+    tvp_cnt = tvp.count()
+    pvz_cnt = pvz.count()
+    tvz_terran_wins = tvz.filter(winner__race=2).count()
+    tvp_terran_wins = tvp.filter(winner__race=2).count()
+    pvz_protoss_wins = pvz.filter(winner__race=3).count()
+    mirrors_cnt = games.filter(player_one__race=F('player_two__race')).count()
+
+    response_data = {
+        "playerCnt": players_cnt,
+        "maxTeamsInSeasonCnt": max_cnt,
+        "playerGmLeagueCnt": player_gm_league_cnt,
+        "playerMLeagueCnt": player_m_league_cnt,
+        "playerDmLeagueCnt": player_dm_league_cnt,
+        "otherLeaguesCnt": other_leagues_cnt,
+        "playerZergCnt": player_zerg_cnt,
+        "playerTerranCnt": player_terran_cnt,
+        "playerProtossCnt": player_protoss_cnt,
+        "playerRandomCnt": player_random_cnt,
+        "inSeasonTeams": in_season_teams,
+        "matchesCnt": matches_cnt,
+        "pvzCnt": pvz_cnt,
+        "tvpCnt": tvp_cnt,
+        "tvzCnt": tvz_cnt,
+        "pvzProtossWins": pvz_protoss_wins,
+        "tvpTerranWins": tvp_terran_wins,
+        "tvzTerranWins": tvz_terran_wins,
+        "mirrorsCnt": mirrors_cnt
+    }
+    return Response(response_data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def post_manager_contacts(request):
+    user = request.user
+    urls = request.data.get('urls')
+    if not urls or not type(urls) is list:
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+    for url in urls:
+        ManagerContact.objects.create(user=user, url=url)
+    return Response(status=status.HTTP_200_OK, data={"urls": urls})
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def patch_manager_contact(request):
+    user = request.user
+    contact_id = request.data.get('id')
+    data = request.data.get('data')
+    try:
+        contact = ManagerContact.objects.get(id=contact_id, user=user)
+        contact.url = data
+        contact.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except ManagerContact.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def patch_team_resource_url(request):
+    user = request.user
+    res_id = request.data.get('id')
+    data = request.data.get('data')
+    try:
+        resource = TeamResource.objects.get(id=res_id, user=user)
+        resource.url = data
+        resource.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except TeamResource.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def patch_team_resource_name(request):
+    user = request.user
+    res_id = request.data.get('id')
+    data = request.data.get('data')
+    try:
+        resource = TeamResource.objects.get(id=res_id, user=user)
+        resource.name = data
+        resource.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except TeamResource.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_manager_contact(request):
+    user = request.user
+    contact_id = request.data.get('id')
+    try:
+        contact = ManagerContact.objects.get(id=contact_id, user=user)
+        contact.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except ManagerContact.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_team_resource(request):
+    user = request.user
+    res_id = request.data.get('id')
+    try:
+        resource = TeamResource.objects.get(id=res_id, user=user)
+        resource.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except TeamResource.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def post_team_resource(request):
+    user = request.user
+    team = Team.objects.get(user=user)
+    resource = TeamResource.objects.create(user=user, name='', url='', team=team)
+    return Response({"id": resource.id, "teamId": team.id} ,status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def post_manager_contact(request):
+    user = request.user
+    contact = ManagerContact.objects.create(user=user, url='')
+    return Response({"id": contact.id} ,status=status.HTTP_200_OK)
