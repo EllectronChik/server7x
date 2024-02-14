@@ -304,16 +304,27 @@ def get_season_data(season):
         return None, None
     groups = season_first.groupstage_set.all()
     tournaments_in_group = season_first.tournament_set.filter(group__isnull=False)
+    tournaments_off_group = season_first.tournament_set.filter(group__isnull=True)
     wins = {}
     playoff_data = {}
     for tournament in tournaments_in_group:
         if tournament.winner:
             wins[tournament.winner.pk] = wins.get(
                 tournament.winner.pk, 0) + 1
-    max_stage = tournaments_in_group.aggregate(Max('stage'))['stage__max']
+    stage_nums = []
+    max_stage = tournaments_off_group.aggregate(Max('stage'))['stage__max']
+    second_max_stage = 0
+    if max_stage == 999:
+        second_max_stage = tournaments_off_group.values_list('stage', flat=True).order_by('-stage').distinct()[1]
+        max_stage = second_max_stage
+    for stage in range(1, max_stage + 1):
+        stage_nums.append(stage)
+    if second_max_stage != 0:
+        stage_nums.append(999)
     stages = {}
     if (max_stage):
-        for stage in range(1, max_stage + 1):
+        for stage in stage_nums:
+            print(stage, max_stage)
             tournaments = season_first.tournament_set.filter(
                 group__isnull=True, stage=stage).order_by('inline_number').prefetch_related('match_set')
             for tournament in tournaments:
