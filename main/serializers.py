@@ -33,9 +33,18 @@ class ManagersSerializer(serializers.ModelSerializer):
 
 
 class ManagerContactsSerializer(serializers.ModelSerializer):
+    url = serializers.CharField()
+
     class Meta:
         model = ManagerContact
         fields = '__all__'
+
+    def validate_url(self, value):
+        protocol_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
+        not_protocol_pattern = "^[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
+        if not re.match(protocol_pattern, value) and not re.match(not_protocol_pattern, value):
+            raise serializers.ValidationError('Invalid URL')
+        return value
 
 
 class SeasonsSerializer(serializers.ModelSerializer):
