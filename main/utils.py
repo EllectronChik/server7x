@@ -317,14 +317,13 @@ def get_season_data(season):
     if max_stage == 999:
         second_max_stage = tournaments_off_group.values_list('stage', flat=True).order_by('-stage').distinct()[1]
         max_stage = second_max_stage
-    for stage in range(1, max_stage + 1):
-        stage_nums.append(stage)
-    if second_max_stage != 0:
-        stage_nums.append(999)
-    stages = {}
     if (max_stage):
+        for stage in range(1, max_stage + 1):
+            stage_nums.append(stage)
+        if second_max_stage != 0:
+            stage_nums.append(999)
+        stages = {}
         for stage in stage_nums:
-            print(stage, max_stage)
             tournaments = season_first.tournament_set.filter(
                 group__isnull=True, stage=stage).order_by('inline_number').prefetch_related('match_set')
             for tournament in tournaments:
