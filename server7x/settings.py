@@ -31,7 +31,9 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '*'
+]
 
 # CORS_ALLOW_ALL_ORIGINS = True
 
@@ -195,6 +197,7 @@ CELERY_RESULT_SERIALIZER = "json"
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://192.168.1.65:5173"
 ]
 
 CHANNEL_LAYERS = {
