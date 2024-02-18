@@ -171,14 +171,18 @@ class SeasonsViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object_or_404()
         if (request.data.get('is_finished')):
-            highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by(
-                '-stage').values_list('stage', flat=True).distinct()[0]
-            if (highest_stage == 999):
-                highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by(
-                    '-stage').values_list('stage', flat=True).distinct()[1]
-            tournament = Tournament.objects.get(
-                season=instance, group__isnull=True, stage=highest_stage)
-            instance.winner = tournament.winner if tournament.winner else None
+            tournaments_off_group = Tournament.objects.filter(season=instance, group__isnull=True)
+            if not tournaments_off_group:
+                instance.winner = None
+            else:
+                highest_stage = tournaments_off_group.order_by(
+                    '-stage').values_list('stage', flat=True).distinct()[0]
+                if (highest_stage == 999):
+                    highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by(
+                        '-stage').values_list('stage', flat=True).distinct()[1]
+                tournament = Tournament.objects.get(
+                    season=instance, group__isnull=True, stage=highest_stage)
+                instance.winner = tournament.winner if tournament.winner else None
         serializer = self.get_serializer(
             instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -592,41 +596,7 @@ def get_league_by_mmr(request):
         return Response({"league": resp}, status=status.HTTP_200_OK)
     except:
         return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['PATCH'])
-@permission_classes([permissions.IsAdminUser])
-def user_staff_status_true(request):
-    try:
-        user = User.objects.get(username=request.data.get('username'))
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if user.is_staff:
-        return Response({"error": "User is already staff"}, status=status.HTTP_400_BAD_REQUEST)
-
-    user.is_staff = True
-    user.save()
-
-    return Response({"message": "User staff status updated"}, status=status.HTTP_200_OK)
-
-
-@api_view(['PATCH'])
-@permission_classes([permissions.IsAdminUser])
-def user_staff_status_false(request):
-    try:
-        user = User.objects.get(username=request.data.get('username'))
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if not user.is_staff:
-        return Response({"error": "User is already not staff"}, status=status.HTTP_400_BAD_REQUEST)
-
-    user.is_staff = False
-    user.save()
-
-    return Response({"message": "User staff status updated"}, status=status.HTTP_200_OK)
-
+    
 
 @api_view(['GET'])
 def get_current_tournaments(request):
@@ -1257,3 +1227,34 @@ def post_manager_contact(request):
     user = request.user
     contact = ManagerContact.objects.create(user=user, url='')
     return Response({"id": contact.id} ,status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAdminUser])
+def set_staff_user_by_id(request):
+    state = request.data.get('state')
+    user_id = request.data.get('id')
+    if user_id is None:
+        return Response({"error": "User id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    elif user_id == request.user.id:
+        return Response({"error": "You cannot set yourself as a staff"}, status=status.HTTP_400_BAD_REQUEST)
+    elif user_id.isnumeric() == False:
+        return Response({"error": "User id must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    if not state:
+        return Response({"error": "State is required"}, status=status.HTTP_400_BAD_REQUEST)
+    elif state.isnumeric() == False:
+        return Response({"error": "State must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+    elif not (int(state) == 0 or int(state) == 1):
+        return Response({"error": "State must be 0 or 1"}, status=status.HTTP_400_BAD_REQUEST)
+    elif user.is_staff and int(state) == 1:
+        return Response({"error": "User is already staff"}, status=status.HTTP_400_BAD_REQUEST)
+    elif not user.is_staff and int(state) == 0:
+        return Response({"error": "User is already not staff"}, status=status.HTTP_400_BAD_REQUEST)
+    user.is_staff = state
+    user.save()
+
+    return Response({"message": "User staff status updated"}, status=status.HTTP_200_OK)
