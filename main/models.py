@@ -79,7 +79,7 @@ class Tournament(models.Model):
         'Tournament', on_delete=models.CASCADE, null=True, blank=True, default=None, related_name='next_stage_tournament_related_name')
 
     def __str__(self):
-        return f"{self.team_one} vs {self.team_two}"
+        return f"{self.group if self.group else 'playoff'}:  {self.team_one} vs {self.team_two}"
 
     def clean(self):
         if self.team_one == self.team_two:
