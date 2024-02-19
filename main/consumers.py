@@ -358,10 +358,13 @@ class TournamentStatusConsumer(AsyncConsumer):
                 elif action == 'finish':
                     obj = await sync_to_async(Tournament.objects.get)(pk=tournament_id)
                     obj_inline = await sync_to_async(lambda: obj.inline_number)()
-                    paired_number = obj_inline + 1 if obj_inline % 2 == 0 else obj_inline - 1
-                    paired_tournament = await sync_to_async(lambda: Tournament.objects.get(inline_number=paired_number, stage=obj.stage, season=obj.season))()
-                    if paired_tournament:
-                        paired_tournament_winner = await sync_to_async(lambda: paired_tournament.winner)()
+                    if obj_inline is not None:
+                        paired_number = obj_inline + 1 if obj_inline % 2 == 0 else obj_inline - 1
+                        paired_tournament = await sync_to_async(lambda: Tournament.objects.get(inline_number=paired_number, stage=obj.stage, season=obj.season))()
+                        if paired_tournament:
+                            paired_tournament_winner = await sync_to_async(lambda: paired_tournament.winner)()
+                        else:
+                            paired_tournament_winner = None
                     else:
                         paired_tournament_winner = None
                     asked_team = await sync_to_async(lambda: obj.asked_team)()
