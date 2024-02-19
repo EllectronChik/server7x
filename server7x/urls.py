@@ -39,7 +39,8 @@ urlpatterns = [
          views.GetMemberLogo.as_view()),
     path('api/v1/get_league_by_mmr/',
          views.get_league_by_mmr, name='get_league_by_mmr'),
-         path('api/v1/setStaffStatus/', views.set_staff_user_by_id, name='set_staff_status'),
+    path('api/v1/setStaffStatus/',
+         views.set_staff_user_by_id, name='set_staff_status'),
     path('api/v1/manager/team/', views.get_team_and_related_data,
          name='get_team_and_related_data'),
     path('api/v1/get_current_tournaments/',
@@ -101,6 +102,7 @@ urlpatterns = [
     path('api/v1/status/', views.is_manager_or_staff),
     path('api/v1/auth/', include('djoser.urls')),
     path('api/v1/getStatistics/', views.get_statistics),
+    path('api/v1/getAllUsers/', views.get_all_users),
     re_path(r'^auth/', include('djoser.urls.authtoken')),
 ]
 
