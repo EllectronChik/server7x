@@ -171,7 +171,8 @@ class SeasonsViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object_or_404()
         if (request.data.get('is_finished')):
-            tournaments_off_group = Tournament.objects.filter(season=instance, group__isnull=True)
+            tournaments_off_group = Tournament.objects.filter(
+                season=instance, group__isnull=True)
             if not tournaments_off_group:
                 instance.winner = None
             else:
@@ -596,7 +597,7 @@ def get_league_by_mmr(request):
         return Response({"league": resp}, status=status.HTTP_200_OK)
     except:
         return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
 
 @api_view(['GET'])
 def get_current_tournaments(request):
@@ -1217,8 +1218,9 @@ def delete_team_resource(request):
 def post_team_resource(request):
     user = request.user
     team = Team.objects.get(user=user)
-    resource = TeamResource.objects.create(user=user, name='', url='', team=team)
-    return Response({"id": resource.id, "teamId": team.id} ,status=status.HTTP_200_OK)
+    resource = TeamResource.objects.create(
+        user=user, name='', url='', team=team)
+    return Response({"id": resource.id, "teamId": team.id}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -1226,7 +1228,7 @@ def post_team_resource(request):
 def post_manager_contact(request):
     user = request.user
     contact = ManagerContact.objects.create(user=user, url='')
-    return Response({"id": contact.id} ,status=status.HTTP_200_OK)
+    return Response({"id": contact.id}, status=status.HTTP_200_OK)
 
 
 @api_view(['PATCH'])
@@ -1238,16 +1240,18 @@ def set_staff_user_by_id(request):
         return Response({"error": "User id is required"}, status=status.HTTP_400_BAD_REQUEST)
     elif user_id == request.user.id:
         return Response({"error": "You cannot set yourself as a staff"}, status=status.HTTP_400_BAD_REQUEST)
-    elif user_id.isnumeric() == False:
-        return Response({"error": "User id must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+    elif type(user_id) is not int:
+        if user_id.isnumeric() == False:
+            return Response({"error": "User id must be a number"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    if not state:
+    if state is None:
         return Response({"error": "State is required"}, status=status.HTTP_400_BAD_REQUEST)
-    elif state.isnumeric() == False:
-        return Response({"error": "State must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+    elif type(state) is not int:
+        if state.isnumeric() == False:
+            return Response({"error": "State must be a number"}, status=status.HTTP_400_BAD_REQUEST)
     elif not (int(state) == 0 or int(state) == 1):
         return Response({"error": "State must be 0 or 1"}, status=status.HTTP_400_BAD_REQUEST)
     elif user.is_staff and int(state) == 1:
@@ -1258,3 +1262,17 @@ def set_staff_user_by_id(request):
     user.save()
 
     return Response({"message": "User staff status updated"}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_all_users(request):
+    users = User.objects.all()
+    users_data = []
+    for user in users:
+        users_data.append({
+            "id": user.id,
+            "username": user.username,
+            "isStaff": user.is_staff
+        })
+    return Response(users_data)
