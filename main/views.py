@@ -199,13 +199,6 @@ class SeasonsViewSet(viewsets.ModelViewSet):
             serializer.save()
 
 
-class ScheduleViewSet(viewsets.ModelViewSet):
-    queryset = Schedule.objects.all()
-    serializer_class = ScheduleSerializer
-    permission_classes = (isAdminOrReadOnly, )
-    pagination_class = CustomPageNumberPagination
-
-
 class TournamentsViewSet(viewsets.ModelViewSet):
     queryset = Tournament.objects.all()
     serializer_class = TournamentsSerializer
@@ -380,46 +373,6 @@ class LeagueViewSet(viewsets.ModelViewSet):
     pagination_class = CustomPageNumberPagination
 
 
-class UserDeviceViewSet(viewsets.ModelViewSet):
-    queryset = UserDevice.objects.all()
-    serializer_class = UserDevicesSerializer
-    permission_classes = (permissions.IsAdminUser |
-                          permissions.IsAuthenticated, )
-    pagination_class = CustomPageNumberPagination
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        user_devices = queryset.filter(user=self.request.user)
-        device_values = user_devices.values_list('device', flat=True)
-        return Response(list(device_values))
-
-    def patch(self, request, *args, **kwargs):
-        if request.data.get('action') not in ['increase', 'decrease']:
-            return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            user_device = UserDevice.objects.get(user=self.request.user.id)
-        except UserDevice.DoesNotExist:
-            user_device = UserDevice.objects.create(
-                user=self.request.user, device=0)
-
-        current_device_value = user_device.device
-
-        if request.data.get('action') == 'increase':
-            new_device_value = current_device_value + 1
-        elif request.data.get('action') == 'decrease':
-            new_device_value = current_device_value - 1
-        else:
-            return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user_device.device = new_device_value
-        user_device.save()
-
-        if new_device_value == 0:
-            logout_user(self.request)
-
-        return Response({"device": new_device_value}, status=status.HTTP_200_OK)
-
-
 class PlayerToTournamentViewSet(viewsets.ModelViewSet):
     queryset = PlayerToTournament.objects.all()
     serializer_class = PlayerToTournamentSerializer
@@ -493,7 +446,7 @@ class GetMemberLogo(APIView):
 
 class groupStageViewSet(viewsets.ModelViewSet):
     queryset = GroupStage.objects.all()
-    serializer_class = groupStageSerializer
+    serializer_class = GroupStageSerializer
     permission_classes = (isAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
@@ -762,7 +715,7 @@ def postTeamToGroup(request):
         pass
     groupStage.teams.add(team.team)
     groupStage.save()
-    groupStageData = groupStageSerializer(groupStage).data
+    groupStageData = GroupStageSerializer(groupStage).data
     return Response(groupStageData)
 
 
@@ -1267,7 +1220,10 @@ def set_staff_user_by_id(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAdminUser])
 def get_all_users(request):
-    users = User.objects.all()
+    if request.user.is_superuser == False:
+        users = User.objects.filter(is_superuser=False, is_staff=False)
+    else:
+        users = User.objects.filter(is_superuser=False)
     users_data = []
     for user in users:
         users_data.append({
