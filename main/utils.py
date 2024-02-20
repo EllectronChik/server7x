@@ -1,3 +1,4 @@
+# Import necessary modules and packages
 import configparser
 import datetime
 import random
@@ -11,13 +12,17 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db.models import Max
 
 
+# Read configuration from .ini file
 config = configparser.ConfigParser()
 config.read('.ini')
 
 
+# Asynchronous function to fetch Blizzard league data
 async def get_blizzard_league_data(region, league):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
+    # Get current season
     season = await get_season()
+    # Determine region multiplier
     match region:
         case 'eu':
             region_multi = 0
@@ -25,8 +30,10 @@ async def get_blizzard_league_data(region, league):
             region_multi = 1
         case 'kr':
             region_multi = 2
+    # API URL for fetching league data
     api_url = f'https://{region}.api.blizzard.com/data/sc2/league/{season}/201/0/{league - 1}?locale=en_US&access_token={token}'
     response = requests.get(api_url)
+    # Handle different HTTP status codes
     if response.status_code == 200:
         data = response.json()
         for tier in data['tier']:
@@ -60,9 +67,10 @@ async def get_blizzard_league_data(region, league):
             return None
 
 
+# Function to fetch current season
 async def get_season():
     current_time = datetime.datetime.utcnow().isoformat()
-
+    # URL to fetch current season data
     get_season = f'https://sc2pulse.nephest.com/sc2/api/season/state/{current_time}Z/DAY'
 
     response = requests.get(get_season)
@@ -82,6 +90,7 @@ async def get_season():
         return None
 
 
+# Function to get new access token
 def get_new_access_token():
     token_url = 'https://oauth.battle.net/token'
 
@@ -94,7 +103,7 @@ def get_new_access_token():
 
     response = requests.post(token_url, data=data,
                              auth=(client_id, client_secret))
-
+    # Handle response
     if response.status_code == 200:
         config.set('BLIZZARD', 'BLIZZARD_API_TOKEN',
                    response.json()['access_token'])
@@ -105,10 +114,13 @@ def get_new_access_token():
         return (response.status_code)
 
 
+# Function to fetch Blizzard data
 def get_blizzard_data(region, realm, character_id):
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
+    # API URL for fetching Blizzard data
     api_url = f'https://us.api.blizzard.com/sc2/metadata/profile/{region}/{realm}/{character_id}?locale=en_US&access_token={token}'
     response = requests.get(api_url)
+     # Handle response
     if response.status_code == 200:
         return response
     elif response.status_code == 401:
@@ -118,6 +130,7 @@ def get_blizzard_data(region, realm, character_id):
         return Response({"error": "Character not found"}, status=404)
 
 
+# Function to distribute teams to groups
 def distribute_teams_to_groups(teams, num_groups):
     try:
         random.shuffle(teams)
@@ -125,6 +138,7 @@ def distribute_teams_to_groups(teams, num_groups):
     except:
         return {"error": "Invalid number of groups", "status": 400}
     try:
+        # Delete existing group stage data for the season
         GroupStage.objects.filter(season=teams[0].season).delete()
     except IndexError:
         pass
@@ -154,6 +168,7 @@ def distribute_teams_to_groups(teams, num_groups):
     return {"status": 201}
 
 
+# Function to compress image
 def image_compressor(image, team_name=None):
 
     max_size = (720, 720)
@@ -173,6 +188,7 @@ def image_compressor(image, team_name=None):
     return image_file
 
 
+# Function to fetch avatar
 def get_avatar(region, realm, character_id):
     try:
         response = get_blizzard_data(region, realm, character_id)
@@ -188,6 +204,7 @@ def get_avatar(region, realm, character_id):
             raise e
 
 
+# Function to fetch league frames
 def leagueFrames():
     league_frames = {
         'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
@@ -212,6 +229,7 @@ def leagueFrames():
     return league_frames
 
 
+# Function to determine league based on MMR
 def get_league(mmr, league_frames, region):
     mmr = int(mmr)
     if (mmr > league_frames[f'{region}_6']):
@@ -231,6 +249,7 @@ def get_league(mmr, league_frames, region):
     return league_max
 
 
+# Function to format character data
 def form_character_data(clan_tag: str):
     api_url = f'https://sc2pulse.nephest.com/sc2/api/character/search?term=%5B{clan_tag}%5D'
     response = requests.get(api_url)
@@ -297,6 +316,7 @@ def form_character_data(clan_tag: str):
         return [None, status.HTTP_404_NOT_FOUND]
 
 
+# Function to fetch season data
 def get_season_data(season):
     season = Season.objects.filter(number=season).prefetch_related('groupstage_set', 'tournament_set')
     season_first = season.first()
@@ -315,7 +335,10 @@ def get_season_data(season):
     max_stage = tournaments_off_group.aggregate(Max('stage'))['stage__max']
     second_max_stage = 0
     if max_stage == 999:
-        second_max_stage = tournaments_off_group.values_list('stage', flat=True).order_by('-stage').distinct()[1]
+        try:
+            second_max_stage = tournaments_off_group.values_list('stage', flat=True).order_by('-stage').distinct()[1]
+        except IndexError:
+            second_max_stage = 0
         max_stage = second_max_stage
     if (max_stage):
         for stage in range(1, max_stage + 1):
