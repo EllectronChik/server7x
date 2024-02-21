@@ -462,6 +462,19 @@ class MatchConsumer(AsyncConsumer):
 
     @staticmethod
     def match_update_handler(instance, **kwargs):
+        """
+        Handle match update event and send updated match list to clients.
+
+        This static method handles the match update event and sends the updated match list to clients
+        who are subscribed to the corresponding group.
+
+        Args:
+            instance: The instance of the match being updated.
+            kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
         channel_layer = get_channel_layer()
         matches_data = MatchesSerializer(instance).data
 
@@ -487,7 +500,30 @@ class MatchConsumer(AsyncConsumer):
 
 
 class TournamentStatusConsumer(AsyncConsumer):
+    """
+    WebSocket consumer for handling tournament status updates.
+
+    This class handles WebSocket connections, incoming messages, and disconnections related to
+    tournament status updates. It provides functionality for subscribing to tournaments,
+    updating tournament status, and managing WebSocket timeouts.
+
+    Attributes:
+        is_first_message_received (bool): Flag indicating whether the first message has been received.
+        timeout_task (asyncio.Task): Task for handling WebSocket timeout.
+        group_name (str): Name of the group associated with the WebSocket connection.
+        user (User): User associated with the WebSocket connection.
+    """
+
     async def websocket_connect(self, event):
+        """
+        Handles WebSocket connection events.
+
+        Args:
+            event (dict): The WebSocket connection event.
+
+        Returns:
+            None
+        """
         await self.send({
             'type': 'websocket.accept'
         })
@@ -497,45 +533,76 @@ class TournamentStatusConsumer(AsyncConsumer):
         self.user = None
 
     async def websocket_receive(self, event):
-        if (not self.is_first_message_received):
+        """
+        Handle incoming WebSocket messages.
+
+        This method is called whenever a WebSocket message is received.
+        It processes the incoming message and takes appropriate actions.
+
+        Args:
+            event (dict): The WebSocket event containing the message.
+
+        Returns:
+            None
+        """
+
+        if not self.is_first_message_received:
+            # Check if this is the first message received
             self.is_first_message_received = True
             try:
+                # Attempt to parse the JSON data from the message
                 data = json.loads(event['text'])
             except json.JSONDecodeError:
+                # If JSON decoding fails, close the WebSocket connection
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
+
             try:
+                # Extract token from the data
                 token = data['token']
+                # Extract optional group name from the data
                 self.group_name = data.get('group')
                 try:
+                    # Retrieve user associated with the token
                     token_obj = await sync_to_async(Token.objects.get)(key=token)
-
                 except Token.DoesNotExist:
+                    # If token is not valid, close the WebSocket connection
                     await self.send({
                         'type': 'websocket.close',
                     })
                     raise StopConsumer()
+
+                # Extract action from the data
                 action = data['action']
                 if action == 'subscribe':
                     try:
+                        # Retrieve user and associated manager
                         user = await sync_to_async(lambda: token_obj.user)()
                         user_id = await sync_to_async(lambda: user.id)()
-                        manger = await sync_to_async(Manager.objects.get)(user=user)
-                        team = await sync_to_async(lambda: manger.team)()
-                        tournaments = await sync_to_async(Tournament.objects.filter)(Q(team_one=team) | Q(team_two=team))
+                        manager = await sync_to_async(Manager.objects.get)(user=user)
+                        team = await sync_to_async(lambda: manager.team)()
+                        # Retrieve tournaments associated with the team
+                        tournaments = await sync_to_async(Tournament.objects.filter)(
+                            Q(team_one=team) | Q(team_two=team)
+                        )
                         if self.group_name:
                             if self.group_name == user_id:
+                                # Add consumer to manager's group
                                 await self.channel_layer.group_add(
                                     f'manager_{self.group_name}', self.channel_name
                                 )
                             else:
+                                # If group name is specified and doesn't match user id, close connection
                                 await self.send({
                                     'type': 'websocket.close',
                                 })
                                 raise StopConsumer()
-                        await sync_to_async(self.tournament_update_handler)(manager_id=self.group_name, instance=tournaments)
+                        # Update tournaments for the manager
+                        await sync_to_async(self.tournament_update_handler)(
+                            manager_id=self.group_name, instance=tournaments
+                        )
                     except Manager.DoesNotExist:
                         await self.send({
                             'type': 'websocket.close',
@@ -547,41 +614,46 @@ class TournamentStatusConsumer(AsyncConsumer):
                         })
                         raise StopConsumer()
                 else:
+                    # If action is not 'subscribe', close the WebSocket connection
                     await self.send({
                         'type': 'websocket.close',
                     })
                     raise StopConsumer()
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, KeyError):
+                # If required keys are missing or JSON decoding fails, close the WebSocket connection
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
-            except KeyError:
-                await self.send({
-                    'type': 'websocket.close',
-                })
-                raise StopConsumer()
+
+            # Set the user associated with the token
             self.user = await sync_to_async(lambda: token_obj.user)()
-            post_save.connect(self.tournament_update_handler,
-                              sender=Tournament)
+            # Connect the tournament update handler
+            post_save.connect(self.tournament_update_handler, sender=Tournament)
         else:
             try:
+                # Attempt to parse the JSON data from the message
                 data = json.loads(event['text'])
             except json.JSONDecodeError:
+                # If JSON decoding fails, close the WebSocket connection
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
+
             try:
+                # Extract action and tournament id from the data
                 action = data['action']
                 tournament_id = data['id']
                 if action == 'start_now':
+                    # If action is 'start_now', update the start time of the tournament
                     obj = await sync_to_async(Tournament.objects.get)(pk=tournament_id)
                     is_tournament_started = await sync_to_async(lambda: obj.match_start_time.replace(tzinfo=timezone.utc) < datetime.datetime.utcnow().replace(tzinfo=timezone.utc))()
                     if not is_tournament_started:
                         obj.match_start_time = datetime.datetime.utcnow()
                         await sync_to_async(obj.save)()
                 elif action == 'finish':
+                    # If action is 'finish', handle finishing the tournament
                     obj = await sync_to_async(Tournament.objects.get)(pk=tournament_id)
                     obj_inline = await sync_to_async(lambda: obj.inline_number)()
                     if obj_inline is not None:
@@ -601,6 +673,7 @@ class TournamentStatusConsumer(AsyncConsumer):
                     team_one_wins = await sync_to_async(lambda: obj.team_one_wins)()
                     team_two_wins = await sync_to_async(lambda: obj.team_two_wins)()
                     if obj.ask_for_finished and asked_team != team:
+                        # If tournament is finished, update winner and proceed to next stage if applicable
                         obj.is_finished = True
                         obj.ask_for_finished = False
                         obj.asked_team = None
@@ -611,6 +684,7 @@ class TournamentStatusConsumer(AsyncConsumer):
                         else:
                             obj.winner = None
                         if paired_tournament_winner is not None and obj.winner is not None:
+                            # If paired tournament winner and current tournament winner are both available, create next stage tournament
                             next_stage_tournament = await sync_to_async(lambda: Tournament(
                                 team_one=obj.winner,
                                 team_two=paired_tournament_winner,
@@ -627,16 +701,32 @@ class TournamentStatusConsumer(AsyncConsumer):
                             paired_tournament.next_stage_tournament = next_stage_tournament
                             await sync_to_async(paired_tournament.save)()
                     else:
+                        # If tournament is not finished, mark it as asking for finish
                         obj.ask_for_finished = True
                         obj.asked_team = team
                     await sync_to_async(obj.save)()
             except KeyError:
+                # If required keys are missing, close the WebSocket connection
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
 
     async def websocket_disconnect(self, event):
+        """
+        Handle WebSocket disconnection event.
+
+        This method is called when a WebSocket connection is disconnected.
+        It cancels any ongoing timeout task, removes the consumer from
+        the corresponding group, sends a WebSocket close message, and
+        stops the consumer.
+
+        Args:
+            event (dict): The disconnection event.
+
+        Returns:
+            None
+        """
         if self.timeout_task:
             self.timeout_task.cancel()
         await self.channel_layer.group_discard(
@@ -649,6 +739,16 @@ class TournamentStatusConsumer(AsyncConsumer):
         raise StopConsumer()
 
     async def timeout_handler(self):
+        """
+        Handle WebSocket timeout.
+
+        This method handles WebSocket timeout by waiting for a specified
+        duration. If the first message is not received within this duration,
+        it sends a WebSocket close message and stops the consumer.
+
+        Returns:
+            None
+        """
         try:
             await asyncio.sleep(int(env('WEBSOCKET_AUTH_TIMEOUT')))
             if not self.is_first_message_received:
@@ -660,13 +760,41 @@ class TournamentStatusConsumer(AsyncConsumer):
             pass
 
     def tournament_update_handler(self, instance, **kwargs):
+        """
+        Handle tournament update event and send updated tournament list to clients.
+
+        This method handles the tournament update event and sends the updated tournament list to clients
+        who are subscribed to the corresponding group.
+
+        Args:
+            self: The instance of the class.
+            instance: The instance of the tournament being updated.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
+
+        # Get the channel layer
         channel_layer = get_channel_layer()
+
+        # Get the user associated with the group
         user = User.objects.get(pk=self.group_name)
+
+        # Get the current season that is not finished
         season = Season.objects.get(is_finished=False)
+
+        # Get the manager associated with the user
         manager = Manager.objects.get(user=user)
+
+        # Get the team associated with the manager
         team = manager.team
+
+        # Get tournaments involving the team in the current season
         tournaments = Tournament.objects.filter(
             Q(team_one=team) | Q(team_two=team), season=season)
+
+        # If no tournaments found, send empty list to client
         if tournaments.count() == 0:
             async_to_sync(channel_layer.group_send)(
                 f'manager_{self.group_name}',
@@ -675,12 +803,21 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'text': json.dumps([])
                 }
             )
+
+        # Order tournaments by match start time
         tournaments = tournaments.order_by('match_start_time')
+
+        # Prepare response data to send to clients
         response_data = []
         for tournament in tournaments:
+            # Determine opponent team and team number
             opponent = tournament.team_two if tournament.team_one == team else tournament.team_one
             team_in_tour_num = 1 if tournament.team_one == team else 2
+
+            # Serialize opponent team data
             opponent_data = TeamsSerializer(opponent).data
+
+            # Get players of opponent team participating in the tournament
             opp_players_to_tournament = PlayerToTournament.objects.filter(
                 user=opponent.user, Season=season)
             opp_players_to_tournament_data = []
@@ -690,15 +827,15 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'username': player.player.username
                 })
             opponent_data['players'] = opp_players_to_tournament_data
-            if tournament.ask_for_finished:
-                asked_team = True if tournament.asked_team == team else False
-            else:
-                asked_team = None
-            if tournament.winner is not None:
-                winner = tournament.winner.id
-            else:
-                winner = None
-            if (not tournament.is_finished):
+
+            # Determine if the team has been asked for finishing the tournament
+            asked_team = True if tournament.asked_team == team else False if tournament.ask_for_finished else None
+
+            # Determine winner if the tournament is finished
+            winner = tournament.winner.id if tournament.winner is not None else None
+
+            # Prepare data for tournaments
+            if not tournament.is_finished:
                 response_data.append({
                     'id': tournament.id,
                     'startTime': tournament.match_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -712,6 +849,7 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'tournamentInGroup': True if tournament.group is not None else False,
                 })
             else:
+                # If tournament is finished, include match data
                 matches = Match.objects.filter(tournament=tournament)
                 matches_data = MatchesSerializer(matches, many=True).data
                 response_data.append({
@@ -727,6 +865,7 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'tournamentInGroup': True if tournament.group is not None else False,
                 })
 
+        # Send tournament data to clients
         async_to_sync(channel_layer.group_send)(
             f"manager_{self.group_name}",
             {
@@ -734,6 +873,7 @@ class TournamentStatusConsumer(AsyncConsumer):
                 "text": [response_data]
             }
         )
+
 
     async def send_tournaments(self, event):
         await self.send({
@@ -743,20 +883,66 @@ class TournamentStatusConsumer(AsyncConsumer):
 
 
 class AdminConsumer(AsyncConsumer):
+    """
+    Handle WebSocket connections and events for admin users.
+
+    This class implements methods to handle WebSocket connections, receive events from clients,
+    and manage WebSocket disconnections for admin users.
+
+    Attributes:
+        is_first_message_received (bool): Flag to track if the first message is received.
+        timeout_task (asyncio.Task): Task for handling authentication timeout.
+        group_name (str): Name of the group associated with the admin user.
+    """
     async def websocket_connect(self, event):
+        """
+        Handle WebSocket connection event.
+
+        This method is called when a WebSocket connection is established. It accepts the connection,
+        initializes necessary variables, and starts a timeout handler.
+
+        Args:
+            event: The WebSocket connection event.
+
+        Returns:
+            None
+        """
+        # Accept the WebSocket connection
         await self.send({
             'type': 'websocket.accept'
         })
+
+        # Initialize flag to track if the first message is received
         self.is_first_message_received = False
+        
+        # Start a task for timeout handling
         self.timeout_task = asyncio.create_task(self.timeout_handler())
+        
+        # Initialize variable for storing group name
         self.group_name = None
 
+
     async def websocket_receive(self, event):
-        if (not self.is_first_message_received):
+        """
+        Receives websocket events and handles them accordingly.
+
+        This method receives websocket events and performs actions based on the event data,
+        such as subscribing users to a group, updating tournament details, setting winners,
+        or creating new tournaments.
+
+        Args:
+            event (dict): The websocket event containing data sent by the client.
+
+        Returns:
+            None
+        """
+        if not self.is_first_message_received:
+            # If this is the first message received, perform initial setup
             self.is_first_message_received = True
             try:
                 data = json.loads(event['text'])
             except json.JSONDecodeError:
+                # If JSON decoding fails, close the websocket connection and stop the consumer
                 await self.send({
                     'type': 'websocket.close',
                 })
@@ -765,9 +951,10 @@ class AdminConsumer(AsyncConsumer):
                 token = data['token']
                 self.group_name = data.get('group')
                 try:
+                    # Attempt to retrieve user token object asynchronously
                     token_obj = await sync_to_async(Token.objects.get)(key=token)
-
                 except Token.DoesNotExist:
+                    # If token does not exist, close websocket connection and stop the consumer
                     await self.send({
                         'type': 'websocket.close',
                     })
@@ -775,6 +962,7 @@ class AdminConsumer(AsyncConsumer):
                 action = data['action']
                 if action == 'subscribe':
                     try:
+                        # Subscribe user to appropriate group and handle tournament updates
                         user = await sync_to_async(lambda: token_obj.user)()
                         self.group_name = await sync_to_async(lambda: user.id)()
                         is_admin = await sync_to_async(lambda: user.is_staff)()
@@ -794,12 +982,14 @@ class AdminConsumer(AsyncConsumer):
                             })
                             raise StopConsumer()
                     except:
+                        # If any error occurs during subscription, close websocket connection and stop the consumer
                         await self.send({
                             'type': 'websocket.close',
                         })
                         raise StopConsumer()
 
             except KeyError:
+                # If required keys are not found in received data, close websocket connection and stop the consumer
                 await self.send({
                     'type': 'websocket.close',
                 })
@@ -808,11 +998,13 @@ class AdminConsumer(AsyncConsumer):
             try:
                 data = json.loads(event['text'])
             except json.JSONDecodeError:
+                # If JSON decoding fails, close websocket connection and stop the consumer
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
             if data['action'] == 'set_winner':
+                # Handle setting winner action
                 tournament_id = data['tournament_id']
                 winner_id = data['winner_id']
                 tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
@@ -823,11 +1015,13 @@ class AdminConsumer(AsyncConsumer):
                 tournament.winner = winner
                 await sync_to_async(tournament.save)()
             if data['action'] == 'update':
+                # Handle tournament update action
                 tournament_id = data['tournament_id']
                 field = data['field']
                 value = data['value']
                 if field == 'is_finished':
                     try:
+                        # Handle updating 'is_finished' field of the tournament
                         tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
                         team_one = await sync_to_async(lambda: tournament.team_one)()
                         team_two = await sync_to_async(lambda: tournament.team_two)()
@@ -859,6 +1053,7 @@ class AdminConsumer(AsyncConsumer):
                         })
                 elif field == 'winner':
                     try:
+                        # Handle updating 'winner' field of the tournament
                         tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
                         obj_inline = tournament.inline_number
                         if (obj_inline):
@@ -869,8 +1064,9 @@ class AdminConsumer(AsyncConsumer):
                         else:
                             paired_number = None
                         try:
-                            if (paired_number is not None):
-                                paired_tournament = await sync_to_async(lambda: Tournament.objects.get(inline_number=paired_number, stage=tournament.stage, season=tournament.season))()
+                            if paired_number is not None:
+                                paired_tournament = await sync_to_async(lambda: Tournament.objects.get(
+                                    inline_number=paired_number, stage=tournament.stage, season=tournament.season))()
                             else:
                                 paired_tournament = None
                         except Tournament.DoesNotExist:
@@ -889,7 +1085,7 @@ class AdminConsumer(AsyncConsumer):
                                 next_stage_tournament = await sync_to_async(lambda: tournament.next_stage_tournament)()
                             except:
                                 next_stage_tournament = None
-                            if (paired_tournament_winner is not None and next_stage_tournament is None):
+                            if paired_tournament_winner is not None and next_stage_tournament is None:
                                 next_stage_tournament = await sync_to_async(lambda: Tournament(
                                     team_one=paired_tournament_winner,
                                     team_two=winner,
@@ -905,9 +1101,9 @@ class AdminConsumer(AsyncConsumer):
                                 paired_tournament.next_stage_tournament = next_stage_tournament
                                 await sync_to_async(paired_tournament.save)()
                                 tournament.next_stage_tournament = next_stage_tournament
-                            if (next_stage_tournament is not None):
+                            if next_stage_tournament is not None:
                                 next_stage_tournament_team_one = await sync_to_async(lambda: next_stage_tournament.team_one)()
-                                if (next_stage_tournament_team_one == paired_tournament_winner):
+                                if next_stage_tournament_team_one == paired_tournament_winner:
                                     next_stage_tournament.team_two = winner
                                 else:
                                     next_stage_tournament.team_one = winner
@@ -925,6 +1121,7 @@ class AdminConsumer(AsyncConsumer):
                         })
                 elif field == 'team_two':
                     try:
+                        # Handle updating 'team_two' field of the tournament
                         tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
                         team_two = await sync_to_async(Team.objects.get)(pk=value)
                         try:
@@ -942,6 +1139,7 @@ class AdminConsumer(AsyncConsumer):
                         })
                 elif field == 'team_one':
                     try:
+                        # Handle updating 'team_one' field of the tournament
                         tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
                         team_one = await sync_to_async(Team.objects.get)(pk=value)
                         try:
@@ -959,6 +1157,7 @@ class AdminConsumer(AsyncConsumer):
                         })
                 else:
                     try:
+                        # Handle updating other fields of the tournament
                         await sync_to_async(lambda: Tournament._meta.get_field(field))()
                         tournament = await sync_to_async(Tournament.objects.get)(id=tournament_id)
                         try:
@@ -976,6 +1175,7 @@ class AdminConsumer(AsyncConsumer):
                         })
             if data['action'] == 'create_tournament':
                 try:
+                    # Handle creating a new tournament
                     match_start_time = data['match_start_time']
                     team_one_pk = data['team_one']
                     team_two_pk = data['team_two']
@@ -1002,7 +1202,20 @@ class AdminConsumer(AsyncConsumer):
                         'text': 'Incorrect Value'
                     })
 
+
     async def websocket_disconnect(self, event):
+        """
+        Handles WebSocket disconnection event.
+
+        This method cancels any timeout task, removes the consumer from the admin group,
+        sends a close message to the client, and stops the consumer.
+
+        Args:
+            event (dict): The disconnect event.
+
+        Returns:
+            None
+        """
         if self.timeout_task:
             self.timeout_task.cancel()
         await self.channel_layer.group_discard(
@@ -1015,6 +1228,15 @@ class AdminConsumer(AsyncConsumer):
         raise StopConsumer()
 
     async def timeout_handler(self):
+        """
+        Timeout handler for WebSocket authentication.
+
+        This method asynchronously sleeps for a specified timeout duration and closes the WebSocket
+        connection if the first message is not received within the timeout period.
+
+        Returns:
+            None
+        """
         try:
             await asyncio.sleep(int(env('WEBSOCKET_AUTH_TIMEOUT')))
             if not self.is_first_message_received:
@@ -1024,18 +1246,46 @@ class AdminConsumer(AsyncConsumer):
                 raise StopConsumer()
         except asyncio.CancelledError:
             pass
+        
 
     def tournament_update_handler(self, instance, **kwargs):
+        """
+        Handle tournament update event and send updated tournament list to clients.
+
+        This method is responsible for handling the tournament update event and sending the updated
+        tournament list to clients subscribed to the corresponding group.
+
+        Args:
+            instance: The instance of the tournament being updated.
+            kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
+        # Get the channel layer
         channel_layer = get_channel_layer()
+        
+        # Get the current ongoing season
         season = Season.objects.get(is_finished=False)
+        
+        # Get all tournaments associated with the current season
         tournaments = Tournament.objects.filter(season=season)
+        
+        # Initialize an empty list to store response data
         response_data = []
+        
+        # Iterate over each tournament
         for tournament in tournaments:
+            # Get all matches associated with the tournament
             matches = Match.objects.filter(tournament=tournament)
+            
+            # Check if matches exist for the tournament
             if matches:
                 matchesExists = True
             else:
                 matchesExists = False
+            
+            # Prepare tournament data to be sent as response
             tournament_data = {
                 'id': tournament.id,
                 'season': tournament.season.number,
@@ -1055,7 +1305,11 @@ class AdminConsumer(AsyncConsumer):
                 'matchesExists': matchesExists,
                 'inlineNumber': tournament.inline_number
             }
+            
+            # Append tournament data to the response data list
             response_data.append(tournament_data)
+        
+        # Send the updated tournament data to the corresponding group of clients
         async_to_sync(channel_layer.group_send)(
             f"admin_{self.group_name}",
             {
@@ -1063,6 +1317,7 @@ class AdminConsumer(AsyncConsumer):
                 "text": response_data
             }
         )
+
 
     async def send_tournaments(self, event):
         await self.send({
@@ -1072,10 +1327,37 @@ class AdminConsumer(AsyncConsumer):
 
 
 class groupsConsumer(AsyncConsumer):
+    """
+    WebSocket consumer for handling group interactions.
+
+    This class implements methods for handling WebSocket connections, receiving and processing messages,
+    disconnecting clients, and updating group information.
+
+    Attributes:
+        is_first_message_received (bool): Indicates if the first message has been received.
+        timeout_task (asyncio.Task): Task for handling authentication timeout.
+        group_name (str): Name of the group associated with the client.
+        user: User object associated with the WebSocket connection.
+        is_admin_user (bool): Indicates if the user is an admin.
+
+    """
     async def websocket_connect(self, event):
+        """
+        Accepts a WebSocket connection and initializes necessary attributes.
+
+        This method is called when a WebSocket connection is established.
+        It accepts the connection, initializes necessary attributes, and starts a timeout handler task.
+
+        Args:
+            event: WebSocket connection event.
+
+        Returns:
+            None
+        """
         await self.send({
             'type': 'websocket.accept'
         })
+        # Initialize attributes
         self.is_first_message_received = False
         self.timeout_task = asyncio.create_task(self.timeout_handler())
         self.group_name = None
@@ -1083,21 +1365,39 @@ class groupsConsumer(AsyncConsumer):
         self.is_admin_user = False
 
     async def websocket_receive(self, event):
+        """
+        Receives and processes WebSocket messages.
+
+        This method is called when a WebSocket message is received.
+        It processes the message, performs necessary actions based on the message content,
+        and handles errors gracefully.
+
+        Args:
+            event: WebSocket receive event.
+
+        Returns:
+            None
+        """
         if (not self.is_first_message_received):
             self.is_first_message_received = True
             try:
+                # Attempt to decode JSON data from the received message
                 data = json.loads(event['text'])
             except json.JSONDecodeError:
+                # If decoding fails, close the WebSocket connection
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
             try:
+                # Extract token from the received data
                 token = data['token']
                 self.group_name = data.get('group')
                 try:
+                    # Retrieve token object asynchronously
                     token_obj = await sync_to_async(Token.objects.get)(key=token)
                 except Token.DoesNotExist:
+                    # If token does not exist, close the WebSocket connection
                     await self.send({
                         'type': 'websocket.close',
                     })
@@ -1105,12 +1405,14 @@ class groupsConsumer(AsyncConsumer):
                 action = data['action']
                 if action == 'subscribe':
                     try:
+                        # Retrieve user, check if admin, and fetch related data
                         user = await sync_to_async(lambda: token_obj.user)()
                         self.group_name = await sync_to_async(lambda: user.id)()
                         is_admin = await sync_to_async(lambda: user.is_staff)()
                         season = await sync_to_async(Season.objects.get)(is_finished=False)
                         tournaments = await sync_to_async(Tournament.objects.filter)(season=season)
                         if is_admin:
+                            # If user is admin, add to group and update data
                             self.is_admin_user = True
                             self.user = user
                             await self.channel_layer.group_add(
@@ -1121,23 +1423,39 @@ class groupsConsumer(AsyncConsumer):
                             post_save.connect(
                                 self.group_update_handler, sender=Tournament)
                         else:
+                            # If user is not admin, close WebSocket connection
                             await self.send({
                                 'type': 'websocket.close',
                             })
                             raise StopConsumer()
                     except:
+                        # Catch-all exception handler for any unexpected errors
                         await self.send({
                             'type': 'websocket.close',
                         })
                         raise StopConsumer()
 
             except KeyError:
+                # If required keys are missing, close WebSocket connection
                 await self.send({
                     'type': 'websocket.close',
                 })
                 raise StopConsumer()
 
+
     async def websocket_disconnect(self, event):
+        """
+        Handles disconnection of websocket clients.
+
+        This method cancels the timeout task if it exists, removes the client from the group,
+        sends a close signal to the client, and stops the consumer.
+
+        Args:
+            event (dict): Websocket disconnect event.
+
+        Returns:
+            None
+        """
         if self.timeout_task:
             self.timeout_task.cancel()
         await self.channel_layer.group_discard(
@@ -1150,6 +1468,15 @@ class groupsConsumer(AsyncConsumer):
         raise StopConsumer()
 
     async def timeout_handler(self):
+        """
+        Handles the timeout for authentication.
+
+        This method waits for the specified time for the first message from the client. If no
+        message is received within the timeout period, it closes the websocket connection.
+
+        Returns:
+            None
+        """
         try:
             await asyncio.sleep(int(env('WEBSOCKET_AUTH_TIMEOUT')))
             if not self.is_first_message_received:
@@ -1161,23 +1488,55 @@ class groupsConsumer(AsyncConsumer):
             pass
 
     def group_update_handler(self, instance, **kwargs):
+        """
+        Handles updates to group information.
+
+        This method retrieves information about active seasons, groups, tournaments, and team wins.
+        It then formats this information and sends it to clients subscribed to the corresponding group.
+
+        Args:
+            instance: The instance of the match being updated.
+            kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
+        # Importing necessary function to get channel layer
         channel_layer = get_channel_layer()
+        
+        # Getting the active season that is not finished
         season = Season.objects.get(is_finished=False)
+        
+        # Getting all group stages related to the active season
         groups = GroupStage.objects.filter(season=season)
-        tournaments = Tournament.objects.filter(
-            season=season, group__isnull=False)
+        
+        # Getting all tournaments related to the active season and having a group
+        tournaments = Tournament.objects.filter(season=season, group__isnull=False)
+        
+        # Dictionary to store team wins
         wins = {}
+        
+        # Looping through tournaments to count wins for each team
         for tournament in tournaments:
             if tournament.winner:
-                wins[tournament.winner.pk] = wins.get(
-                    tournament.winner.pk, 0) + 1
+                wins[tournament.winner.pk] = wins.get(tournament.winner.pk, 0) + 1
+        
+        # Dictionary to store groups data
         groups_data = {}
+        
+        # Looping through groups to collect teams data
         for group in groups:
             teams_data = {}
+            # Looping through teams in each group
             for team in group.teams.all():
+                # Storing team wins in teams_data
                 teams_data[str(team.pk)] = wins.get(team.pk, 0)
+            # Storing teams_data in groups_data
             groups_data[str(group.pk)] = teams_data
+        
+        # Checking if groups_data is not empty
         if groups_data:
+            # Sending groups_data to the corresponding group channel
             async_to_sync(channel_layer.group_send)(
                 f'groups_{self.group_name}',
                 {
@@ -1185,6 +1544,7 @@ class groupsConsumer(AsyncConsumer):
                     'text': groups_data
                 }
             )
+
 
     async def send_groups(self, event):
         await self.send({
@@ -1194,28 +1554,70 @@ class groupsConsumer(AsyncConsumer):
 
 
 class InfoConsumer(AsyncConsumer):
+    """
+    Handle WebSocket connections for providing information to clients.
+
+    This consumer class manages WebSocket connections and sends relevant information to clients
+    regarding previous seasons, current season status, tournaments, and player data.
+
+    Attributes:
+        group_id (str): Unique identifier for the WebSocket connection group.
+        previus_seasons (dict): Information about previous seasons.
+        players_by_league (dict): Player count by league.
+
+    """
     async def websocket_connect(self, event):
+        """
+        Handle WebSocket connection event.
+
+        This method is called when a WebSocket connection is established.
+        It accepts the connection, adds the channel to a group, and initializes data.
+
+        Args:
+            event (dict): WebSocket connect event.
+
+        Returns:
+            None
+        """
+        # Generate a unique group ID for the connection
         self.group_id = uuid.uuid4().hex
+        
+        # Accept the WebSocket connection
         await self.send({
             'type': 'websocket.accept'
         })
+        
+        # Add the channel to a group using the generated group ID
         await self.channel_layer.group_add(
             f'groups_{self.group_id}',
             self.channel_name
         )
+        
+        # Initialize data: previus_seasons and players_by_league
         self.previus_seasons = await self.async_get_previus_seasons()
         self.players_by_league = await self.async_get_players_by_league()
+        
         try:
+            # Try to get the current season that is not finished
             season = await sync_to_async(Season.objects.get)(is_finished=False)
+            
             try:
+                # Try to get tournaments associated with the current season
                 tournaments = await sync_to_async(Tournament.objects.filter)(season=season)
+                
+                # Update the group with tournament data
                 await sync_to_async(self.group_update_handler)(instance=tournaments)
+                
             except Tournament.DoesNotExist:
                 pass
             except TypeError:
                 pass
+            
+            # Connect the group_update_handler method to the post_save signal of the Tournament model
             post_save.connect(self.group_update_handler, sender=Tournament)
+        
         except Season.DoesNotExist:
+            # If no current season is found, send initial data to the client
             await self.send({
                 'type': 'websocket.send',
                 'text': json.dumps({
@@ -1224,48 +1626,103 @@ class InfoConsumer(AsyncConsumer):
                     "playersByLeague": self.players_by_league
                 })
             })
+            
+            # Connect the wait_for_season method to the post_save signal of the Season model
             post_save.connect(self.wait_for_season, sender=Season)
 
+
     def wait_for_season(self, instance, **kwargs):
+        """
+        Handle waiting for the next season event.
+
+        This method sends information about waiting for the next season to clients.
+
+        Args:
+            instance: The instance of the season.
+            kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
+        # Get the channel layer
         channel_layer = get_channel_layer()
+        # Send information to clients in the group
         async_to_sync(channel_layer.group_send)(
             f'groups_{self.group_id}',
             {
                 'type': 'send_groups',
                 'text': {
-                        'state': 9,
-                        "previusSeasons": self.previus_seasons,
-                        "playersByLeague": self.players_by_league
+                    'state': 9,  # State indicating waiting for next season
+                    "previusSeasons": self.previus_seasons,  # Previous seasons data
+                    "playersByLeague": self.players_by_league  # Players by league data
                 }
             }
         )
 
     @sync_to_async
     def async_get_previus_seasons(self):
+        """
+        Retrieve data about previous seasons asynchronously.
+
+        This method retrieves data about the previous seasons from the database.
+
+        Returns:
+            dict: Dictionary containing information about previous seasons.
+        """
+        # Retrieve previous seasons from the database
         prev_seasons = Season.objects.filter(is_finished=True).order_by(
             '-number')[:2].prefetch_related('tournament_set')
         seasons_data = {}
         tour_cnt = {}
         for prev_season in prev_seasons:
+            # Count tournaments for each previous season
             tour_cnt[str(prev_season.number)] = len(
                 prev_season.tournament_set.all())
+            # Prepare data for each previous season
             seasons_data[str(prev_season.number)] = {
                 'tournamentsCount': tour_cnt[str(prev_season.number)],
                 'winner': prev_season.winner.name if prev_season.winner else None
             }
         return seasons_data
 
+
     @sync_to_async
     def async_get_players_by_league(self):
+        """
+        Retrieve player count by league asynchronously.
+
+        This method retrieves the count of players by league from the database.
+
+        Returns:
+            dict: Dictionary containing player counts by league.
+        """
         players_gmaster = len(Player.objects.filter(league=7))
         players_master = len(Player.objects.filter(league=6))
         players_diamond = len(Player.objects.filter(league=5))
         return {'7': players_gmaster, '6': players_master, '5': players_diamond}
 
     def group_update_handler(self, instance, **kwargs):
+        """
+        Handle group update event.
+
+        This method sends updated group information to clients based on the current state.
+
+        Args:
+            instance: The instance of the tournament.
+            kwargs: Additional keyword arguments.
+
+        Returns:
+            None
+        """
+        # Get the channel layer
         channel_layer = get_channel_layer()
+        
+        # Get the current season
         season = Season.objects.get(is_finished=False)
+        
+        # If the season has not started yet and registration is open
         if (season.start_datetime - timezone.now()).total_seconds() > 0 and season.can_register:
+            # Send the group information to clients
             async_to_sync(channel_layer.group_send)(
                 f'groups_{self.group_id}',
                 {
@@ -1278,9 +1735,13 @@ class InfoConsumer(AsyncConsumer):
                     }
                 }
             )
+            # Wait for the season to start
             async_to_sync(post_save.connect)(
                 self.wait_for_season, sender=Season)
+        
+        # If the season has not started yet but registration is closed
         elif (season.start_datetime - timezone.now()).total_seconds() > 0:
+            # Send the group information to clients
             async_to_sync(channel_layer.group_send)(
                 f'groups_{self.group_id}',
                 {
@@ -1292,9 +1753,15 @@ class InfoConsumer(AsyncConsumer):
                     }
                 }
             )
+        
+        # If the season has started
         else:
+            # Get season and playoff data
             groups_data, playoff_data = get_season_data(season.number)
+            
+            # If there is data available for the season and playoffs
             if groups_data:
+                # Send the group information to clients
                 async_to_sync(channel_layer.group_send)(
                     f'groups_{self.group_id}',
                     {
@@ -1311,7 +1778,9 @@ class InfoConsumer(AsyncConsumer):
                         }
                     }
                 )
+            # If there is no data available for the season and playoffs
             else:
+                # Send the group information to clients
                 async_to_sync(channel_layer.group_send)(
                     f'groups_{self.group_id}',
                     {
@@ -1324,6 +1793,7 @@ class InfoConsumer(AsyncConsumer):
                     }
                 )
 
+
     async def send_groups(self, event):
         await self.send({
             'type': 'websocket.send',
@@ -1331,6 +1801,17 @@ class InfoConsumer(AsyncConsumer):
         })
 
     async def websocket_disconnect(self, event):
+        """
+        Handle WebSocket disconnect event.
+
+        This method is called when a WebSocket connection is disconnected.
+
+        Args:
+            event (dict): WebSocket disconnect event.
+
+        Returns:
+            None
+        """
         await self.channel_layer.group_discard(
             f'groups_{self.group_id}',
             self.channel_name
@@ -1338,6 +1819,18 @@ class InfoConsumer(AsyncConsumer):
         raise StopConsumer()
 
     async def websocket_receive(self, event):
+        """
+        Handle WebSocket receive event.
+
+        This method is called when a WebSocket receives a message.
+        It closes the WebSocket connection.
+
+        Args:
+            event (dict): WebSocket receive event.
+
+        Returns:
+            None
+        """
         await self.send({
             'type': 'websocket.close'
         })
