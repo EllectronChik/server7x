@@ -10,6 +10,12 @@ import logging
 
 @app.task
 def daily_task():
+    """
+    Celery task to update league data daily.
+
+    This task iterates over different regions and league IDs, updates league data,
+    and stores the maximum rating asynchronously.
+    """
     # List of regions to update
     regions = ['eu', 'us', 'kr']
 
@@ -41,6 +47,13 @@ def daily_task():
 
 @app.task
 def update_players_data():
+    """
+    Celery task to update players' data.
+
+    This task retrieves all teams with related player data pre-fetched, fetches player data
+    from Blizzard API, and updates the players' attributes including username, region, realm,
+    league, race, mmr, and avatar.
+    """
     # Retrieve all teams with related player data pre-fetched
     teams = Team.objects.all().prefetch_related('player_set')
     # Iterate over teams
