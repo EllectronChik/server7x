@@ -17,63 +17,116 @@ from django.db.models import Q, F
 from .permissions import *
 from .utils import distribute_teams_to_groups, image_compressor, get_season_data
 
+# Initialize configuration parser
 config = configparser.ConfigParser()
 config.read('.ini')
 
 
 class CustomPageNumberPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = '_limit'
-    max_page_size = 100
+    """
+    Custom pagination class to define page size and behavior.
+    """
+    page_size = 10  # Default page size
+    page_size_query_param = '_limit'  # Parameter to specify page size in request query
+    max_page_size = 100  # Maximum allowed page size
 
 
 class TeamsViewSet(viewsets.ModelViewSet):
-    serializer_class = TeamsSerializer
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)
-    pagination_class = CustomPageNumberPagination
+    """
+    A ViewSet for viewing and editing Team instances.
+
+    Provides `list`, `create`, `retrieve`, `update`, and `destroy` actions.
+    """
+    serializer_class = TeamsSerializer  # Serializer class for TeamsViewSet
+    permission_classes = (IsAdminOrOwnerOrReadOnly,)  # Define permission classes
+    pagination_class = CustomPageNumberPagination  # Define pagination class
 
     def get_queryset(self):
-        queryset = Team.objects.all()
-        tag = self.request.query_params.get('tag')
+        """
+        Get the queryset for Team instances.
+
+        Returns:
+            queryset: A queryset of Team instances filtered based on query parameters.
+        """
+        queryset = Team.objects.all()  # Get all Team instances
+        tag = self.request.query_params.get('tag')  # Get tag parameter from request
         if tag is not None:
-            queryset = queryset.filter(tag=tag)
+            queryset = queryset.filter(tag=tag)  # Filter queryset based on tag parameter
         return queryset
 
     def perform_create(self, serializer):
+        """
+        Perform creation of a new Team instance.
+
+        Args:
+            serializer: Serializer instance for Team.
+
+        Raises:
+            PermissionDenied: If user tries to create with another user's ID.
+        """
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
-                "You can only create objects with your own id")
-        logo = serializer.validated_data.get('logo')
+                "You can only create objects with your own id")  # Permission check
+        logo = serializer.validated_data.get('logo')  # Get logo data from serializer
         if logo:
+            # Compress image and update serializer data
             image_file = image_compressor(
                 logo, serializer.validated_data['tag'])
             serializer.validated_data['logo'] = image_file
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user)  # Save serializer data with user
 
     def perform_update(self, serializer):
-        logo = serializer.validated_data.get('logo')
+        """
+        Perform update of an existing Team instance.
+
+        Args:
+            serializer: Serializer instance for Team.
+        """
+        logo = serializer.validated_data.get('logo')  # Get logo data from serializer
         if logo:
+            # Compress image and update serializer data
             image_file = image_compressor(
                 logo, Team.objects.get(id=serializer.instance.id).tag)
             serializer.validated_data['logo'] = image_file
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user)  # Save serializer data with user
 
 
 class PlayersViewSet(viewsets.ModelViewSet):
+    """
+    A viewset for handling CRUD operations on Player objects.
+    """
+
     serializer_class = PlayersSerializer
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)
-    pagination_class = CustomPageNumberPagination
+    permission_classes = (IsAdminOrOwnerOrReadOnly,)  # Set permission classes for the viewset
+    pagination_class = CustomPageNumberPagination  # Set pagination class for the viewset
 
     def get_queryset(self):
+        """
+        Get the queryset of Player objects based on optional query parameters.
+
+        Returns:
+            QuerySet: A queryset of Player objects filtered by optional query parameters.
+        """
         queryset = Player.objects.all()
         team = self.request.query_params.get('team')
 
         if team is not None:
             queryset = queryset.filter(team=team)
+
         return queryset
 
     def perform_create(self, serializer):
+        """
+        Perform custom actions when creating a new Player object.
+
+        Args:
+            serializer (PlayersSerializer): The serializer instance used for creating the object.
+        
+        Raises:
+            PermissionDenied: If the creating user is not the same as the request user.
+        """
         if serializer.validated_data['league'] is None:
+            # If league is not provided, calculate it based on MMR and region
             league_frames = leagueFrames()
             if serializer.validated_data['region'] == 1:
                 region = 'US'
@@ -82,64 +135,113 @@ class PlayersViewSet(viewsets.ModelViewSet):
             elif serializer.validated_data['region'] == 3:
                 region = 'KR'
 
-            league = get_league(
-                serializer.validated_data['mmr'], league_frames, region)
+            league = get_league(serializer.validated_data['mmr'], league_frames, region)
             serializer.validated_data['league'] = league
 
+        # Check if the creating user is the same as the request user
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
                 "You can only create objects with your own id")
         else:
+            # Save the object with the request user as the owner
             serializer.save(user=self.request.user)
 
 
 class ManagersViewSet(viewsets.ModelViewSet):
-    queryset = Manager.objects.all()
-    serializer_class = ManagersSerializer
-    permission_classes = (IsAdminOrOwnerOrReadOnly, )
-    pagination_class = CustomPageNumberPagination
+    """
+    A ViewSet for CRUD operations on Manager objects.
+    """
+
+    queryset = Manager.objects.all()  # Retrieve all Manager objects
+    serializer_class = ManagersSerializer  # Use ManagersSerializer for serialization
+    permission_classes = (IsAdminOrOwnerOrReadOnly, )  # Permission classes for view level authorization
+    pagination_class = CustomPageNumberPagination  # Custom pagination class for pagination
 
     def perform_create(self, serializer):
+        """
+        Perform custom logic when creating a new Manager object.
+        """
 
+        # Check if the user attempting to create the object is the same as the logged-in user
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
                 "You can only create objects with your own id")
         else:
+            # Assign the logged-in user as the owner of the Manager object
             serializer.save(user=self.request.user)
 
-        serializer.save(user=self.request.user)
-
     def get_queryset(self):
-        queryset = Manager.objects.all()
-        user = self.request.query_params.get('user')
+        """
+        Retrieve the queryset of Manager objects based on optional query parameters.
+        """
 
+        queryset = Manager.objects.all()  # Initial queryset containing all Manager objects
+        user = self.request.query_params.get('user')  # Retrieve the 'user' query parameter if provided
+
+        # If 'user' query parameter is provided, filter the queryset to include only Manager objects
+        # associated with the specified user
         if user is not None:
             queryset = queryset.filter(user=user)
         return queryset
 
 
+
 class ManagerContactsViewSet(viewsets.ModelViewSet):
+    """
+    A viewset for managing manager contacts.
+    """
+    # Specify the queryset to retrieve all ManagerContact objects.
     queryset = ManagerContact.objects.all()
+    
+    # Specify the serializer class to use for serialization and deserialization.
     serializer_class = ManagerContactsSerializer
+    
+    # Specify the permission classes for this viewset.
+    # Users must be admins or owners to modify objects, while others can only read.
     permission_classes = (IsAdminOrOwnerOrReadOnly,)
+    
+    # Specify the pagination class to paginate the queryset.
     pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
+        """
+        Perform custom actions after creating a ManagerContact object.
 
+        Args:
+            serializer: The serializer instance used to create the object.
+
+        Raises:
+            PermissionDenied: If the user trying to create the object is not the owner.
+        """
+        # Check if the user creating the object is the owner.
         if serializer.validated_data['user'] != self.request.user:
+            # If not, deny permission to create the object.
             raise exceptions.PermissionDenied(
                 "You can only create objects with your own id")
         else:
+            # If the user is the owner, save the object with the user's ID.
             serializer.save(user=self.request.user)
 
 
 class TeamResourcesViewSet(viewsets.ModelViewSet):
-    queryset = TeamResource.objects.all()
-    serializer_class = TeamResourcesSerializer
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)
-    pagination_class = CustomPageNumberPagination
+    """
+    A ViewSet for interacting with TeamResource objects.
+    """
+    queryset = TeamResource.objects.all()  # Retrieve all TeamResource objects
+    serializer_class = TeamResourcesSerializer  # Use the TeamResourcesSerializer for serialization
+    permission_classes = (IsAdminOrOwnerOrReadOnly,)  # Set permission classes for viewset
+    pagination_class = CustomPageNumberPagination  # Use custom pagination class for pagination
 
     def perform_create(self, serializer):
+        """
+        Perform additional actions upon object creation.
+        
+        Args:
+            serializer (TeamResourcesSerializer): The serializer instance.
+            
+        Raises:
+            PermissionDenied: If user attempting to create object is not the owner.
+        """
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
                 "You can only create objects with your own id")
@@ -147,21 +249,48 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
             serializer.save(user=self.request.user)
 
     def get_queryset(self):
-        queryset = TeamResource.objects.all()
-        team = self.request.query_params.get('team')
+        """
+        Retrieve the queryset based on provided query parameters.
+        
+        Returns:
+            queryset: Filtered queryset based on provided query parameters.
+        """
+        queryset = TeamResource.objects.all()  # Retrieve all TeamResource objects
+        team = self.request.query_params.get('team')  # Get 'team' query parameter from request
 
         if team is not None:
-            queryset = queryset.filter(team=team)
+            queryset = queryset.filter(team=team)  # Filter queryset by 'team' if provided
         return queryset
 
 
 class SeasonsViewSet(viewsets.ModelViewSet):
+    """
+    A ViewSet for handling CRUD operations on Season objects.
+
+    Inherits:
+        viewsets.ModelViewSet
+
+    Attributes:
+        queryset (QuerySet): Set of all Season objects.
+        serializer_class (Serializer): Serializer class for Season objects.
+        permission_classes (tuple): Tuple of permission classes.
+        pagination_class (Pagination): Pagination class for listing objects.
+    """
     queryset = Season.objects.all()
     serializer_class = SeasonsSerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
     def get_object_or_404(self):
+        """
+        Retrieve a single Season instance by its primary key or return a 404 response if not found.
+
+        Returns:
+            Season: The requested Season instance.
+
+        Raises:
+            Http404: If the Season instance does not exist.
+        """
         number = self.kwargs.get('pk')
         try:
             return Season.objects.get(number=number)
@@ -169,115 +298,190 @@ class SeasonsViewSet(viewsets.ModelViewSet):
             return Response({"error": "Season not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a Season instance.
+
+        Args:
+            request (Request): The HTTP request.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Response: HTTP response with the updated Season data.
+        """
+        # Retrieve the Season instance or return a 404 error if not found
         instance = self.get_object_or_404()
+
+        # Check if 'is_finished' field is present in request data
         if (request.data.get('is_finished')):
+            # Find tournaments without group associated with the current season
             tournaments_off_group = Tournament.objects.filter(
                 season=instance, group__isnull=True)
+
+            # If no such tournaments exist, set winner to None
             if not tournaments_off_group:
                 instance.winner = None
             else:
+                # Find the highest stage tournament without group associated with the current season
                 highest_stage = tournaments_off_group.order_by(
                     '-stage').values_list('stage', flat=True).distinct()[0]
+                # If the highest stage is 999, consider the second highest stage
                 if (highest_stage == 999):
                     highest_stage = Tournament.objects.filter(season=instance, group__isnull=True).order_by(
                         '-stage').values_list('stage', flat=True).distinct()[1]
+                # Get the tournament at the highest stage
                 tournament = Tournament.objects.get(
                     season=instance, group__isnull=True, stage=highest_stage)
+                # Set winner of the season to winner of the tournament, if exists
                 instance.winner = tournament.winner if tournament.winner else None
+        
+        # Serialize the updated instance with partial data
         serializer = self.get_serializer(
             instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        # Save the updated instance
         serializer.save()
         return Response(serializer.data)
 
     def perform_create(self, serializer):
+        """
+        Perform creation of a new Season instance.
+
+        Args:
+            serializer (Serializer): The serializer instance.
+
+        Raises:
+            PermissionDenied: If a Season instance is already created and not finished.
+        """
         try:
+            # Check if any season is already created and not finished
             season = Season.objects.get(is_finished=False)
             if season:
+                # Raise permission denied if such a season exists
                 raise exceptions.PermissionDenied("Season is already created")
         except Season.DoesNotExist:
+            # Save the new season
             serializer.save()
 
 
 class TournamentsViewSet(viewsets.ModelViewSet):
+    """
+    A viewset for managing tournaments.
+
+    This viewset provides CRUD operations for tournaments including creation, retrieval, updating, and deletion.
+    It supports permissions for controlling access to these operations and utilizes pagination for handling large datasets.
+
+    Attributes:
+        queryset: Queryset representing all tournaments in the database.
+        serializer_class: Serializer class used for serializing/deserializing tournament data.
+        permission_classes: List of permission classes applied to control access to viewset actions.
+        pagination_class: Class for pagination settings used in listing tournaments.
+    """
     queryset = Tournament.objects.all()
     serializer_class = TournamentsSerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
+        """
+        Custom creation method for tournaments.
+
+        This method performs custom validation and creation logic for tournament objects.
+        It checks if a tournament with similar attributes already exists, validates team uniqueness,
+        and handles the creation of tournaments with group-specific attributes.
+
+        Args:
+            serializer: Serializer instance containing validated data for tournament creation.
+
+        Raises:
+            ValidationError: If teams are equal.
+            PermissionDenied: If tournament with same attributes already exists.
+
+        Returns:
+            None
+        """
+        # Check if a tournament with the same attributes already exists
         tournament = Tournament.objects.filter(
             season=Season.objects.get(is_finished=False),
             stage=serializer.validated_data['stage'],
             team_one=serializer.validated_data['team_one'],
             team_two=serializer.validated_data['team_two'],
-            match_start_time=serializer.validated_data['match_start_time']).first()
-        if (serializer.validated_data['team_one'] == serializer.validated_data['team_two']):
+            match_start_time=serializer.validated_data['match_start_time']
+        ).first()
+        
+        # Check if team_one and team_two are the same
+        if serializer.validated_data['team_one'] == serializer.validated_data['team_two']:
             raise exceptions.ValidationError("Teams can't be equal")
+        
+        # Check if a tournament already exists with the same attributes
         if tournament:
             raise exceptions.PermissionDenied("Tournament is already created")
+        
+        # If 'group' is provided in the validated data
         if 'group' in serializer.validated_data:
             try:
+                # Attempt to find a tournament with the same attributes but different team_two
                 tournament = Tournament.objects.get(
                     season=Season.objects.get(is_finished=False),
                     stage=serializer.validated_data['stage'],
                     group=serializer.validated_data['group'],
                     team_one=serializer.validated_data['team_one'],
-                    match_start_time=serializer.validated_data['match_start_time'],
+                    match_start_time=serializer.validated_data['match_start_time']
                 )
                 if tournament and serializer.validated_data['team_one']:
                     tournament.team_two = serializer.validated_data['team_two']
                     tournament.save()
             except Tournament.DoesNotExist:
                 try:
+                    # Attempt to find a tournament with the same attributes but different team_one
                     tournament = Tournament.objects.get(
                         season=Season.objects.get(is_finished=False),
                         stage=serializer.validated_data['stage'],
                         group=serializer.validated_data['group'],
                         team_two=serializer.validated_data['team_two'],
-                        match_start_time=serializer.validated_data['match_start_time'],
+                        match_start_time=serializer.validated_data['match_start_time']
                     )
                     if tournament and serializer.validated_data['team_two']:
                         tournament.team_one = serializer.validated_data['team_one']
                         tournament.save()
                 except Tournament.DoesNotExist:
                     try:
+                        # Attempt to find a tournament with the same attributes but different group
                         tournament = Tournament.objects.get(
                             season=Season.objects.get(is_finished=False),
                             stage=serializer.validated_data['stage'],
                             team_one=serializer.validated_data['team_one'],
                             team_two=serializer.validated_data['team_two'],
-                            match_start_time=serializer.validated_data['match_start_time'],
+                            match_start_time=serializer.validated_data['match_start_time']
                         )
                         if tournament and serializer.validated_data['group']:
                             tournament.group = serializer.validated_data['group']
                             tournament.save()
                     except Tournament.DoesNotExist:
                         try:
+                            # Attempt to find a tournament with the same attributes but different match_start_time
                             tournament = Tournament.objects.get(
                                 season=Season.objects.get(is_finished=False),
                                 stage=serializer.validated_data['stage'],
                                 group=serializer.validated_data['group'],
                                 team_two=serializer.validated_data['team_two'],
-                                team_one=serializer.validated_data['team_one'],
+                                team_one=serializer.validated_data['team_one']
                             )
                             if tournament and serializer.validated_data['match_start_time']:
-                                tournament.match_start_time = serializer.validated_data[
-                                    'match_start_time']
+                                tournament.match_start_time = serializer.validated_data['match_start_time']
                                 tournament.save()
                         except Tournament.DoesNotExist:
                             try:
+                                # Attempt to find a tournament with the same attributes but different group
                                 tournament = Tournament.objects.get(
-                                    season=Season.objects.get(
-                                        is_finished=False),
+                                    season=Season.objects.get(is_finished=False),
                                     group=serializer.validated_data['group'],
                                     team_one=serializer.validated_data['team_one'],
                                     team_two=serializer.validated_data['team_two'],
-                                    match_start_time=serializer.validated_data['match_start_time'],
+                                    match_start_time=serializer.validated_data['match_start_time']
                                 )
                                 if tournament and serializer.validated_data['stage']:
                                     tournament.stage = serializer.validated_data['stage']
-
                                     tournament.save()
                             except Tournament.DoesNotExist:
                                 serializer.save()
@@ -286,10 +490,31 @@ class TournamentsViewSet(viewsets.ModelViewSet):
 
 
 class RegionsViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing regions.
+
+    This class provides CRUD functionality for managing regions.
+
+    Attributes:
+        serializer_class: Serializer class for serializing/deserializing Region objects.
+        permission_classes: List of permission classes applied to view methods.
+
+    """
+
     serializer_class = RegionsSerializer
     permission_classes = (IsAdminOrReadOnly, )
 
     def get_queryset(self):
+        """
+        Get queryset of regions.
+
+        This method retrieves a queryset of regions filtered by name if provided,
+        otherwise returns all regions ordered by name.
+
+        Returns:
+            QuerySet: QuerySet of Region objects.
+
+        """
         name = self.request.query_params.get('name')
         if name is not None:
             return Region.objects.filter(name=name)
@@ -297,12 +522,43 @@ class RegionsViewSet(viewsets.ModelViewSet):
 
 
 class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing tournament registrations.
+
+    This class handles CRUD operations for tournament registrations,
+    providing endpoints for listing, creating, retrieving, updating, and deleting registrations.
+
+    Attributes:
+        queryset (QuerySet): QuerySet of TournamentRegistration objects.
+        serializer_class (Serializer): Serializer class for TournamentRegistration objects.
+        permission_classes (tuple): Tuple of permission classes.
+        pagination_class (Paginator): Paginator class for pagination.
+
+    """
+
     queryset = TournamentRegistration.objects.all()
     serializer_class = TournamentRegistrationSerializer
     permission_classes = (IsAdminOrOwnerOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
+        """
+        Creates a new tournament registration object.
+
+        This method is called when a new tournament registration is being created.
+        It validates the serializer data to ensure the user is creating an object with their own ID,
+        then saves the registration with the current user.
+
+        Args:
+            serializer: Serializer instance containing validated data for creating the registration.
+
+        Raises:
+            PermissionDenied: If the user is attempting to create a registration with a different ID.
+
+        Returns:
+            None
+
+        """
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
                 "You can only create objects with your own id")
@@ -311,11 +567,33 @@ class TournamentRegistrationsViewSet(viewsets.ModelViewSet):
 
 
 class MatchesViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for handling CRUD operations on matches.
+
+    This class implements methods for retrieving, creating, updating, and deleting match objects.
+    It also defines permission classes and pagination.
+
+    Attributes:
+        serializer_class: Serializer class for the Match model.
+        permission_classes: List of permission classes for view authorization.
+        pagination_class: Class for pagination control.
+
+    """
+
     serializer_class = MatchesSerializer
     permission_classes = (CanEditMatchField,)
     pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
+        """
+        Retrieves the queryset based on filtering criteria.
+
+        This method filters the queryset based on query parameters such as player_one and player_two.
+
+        Returns:
+            QuerySet: Filtered queryset of Match objects.
+        """
+
         queryset = Match.objects.all()
         player_one = self.request.query_params.get('player_one')
         player_two = self.request.query_params.get('player_two')
@@ -327,6 +605,20 @@ class MatchesViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
+        """
+        Performs creation of a new Match object.
+
+        This method validates the user creating the match and assigns the current user as the creator.
+
+        Args:
+            serializer: Serializer instance containing validated data for creating the Match object.
+
+        Raises:
+            PermissionDenied: If the user creating the match is not the current authenticated user.
+
+        Returns:
+            None
+        """
 
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
@@ -335,8 +627,31 @@ class MatchesViewSet(viewsets.ModelViewSet):
             serializer.save(user=self.request.user)
 
 
+
 class MatchPlayersViewSet(viewsets.ViewSet):
+    """
+    ViewSet for handling player matches.
+
+    This class implements methods for retrieving and serializing players associated with a match.
+
+    Attributes:
+        None
+    """
+
     def list(self, request, match_id):
+        """
+        Retrieve a list of players for a given match.
+
+        This method retrieves the match with the provided ID, then fetches and serializes the players associated
+        with that match.
+
+        Args:
+            request: HTTP request object.
+            match_id (int): ID of the match to retrieve players for.
+
+        Returns:
+            Response: HTTP response containing serialized player data or an error if the match is not found.
+        """
         try:
             match = Match.objects.get(pk=match_id)
         except Match.DoesNotExist:
@@ -347,8 +662,44 @@ class MatchPlayersViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 
+
+"""
+ViewSet for retrieving teams associated with a match.
+
+This ViewSet provides methods for retrieving teams associated with a match,
+including handling the retrieval of teams, serialization, and response.
+
+Attributes:
+    None
+"""
+
 class MatchTeamsViewSet(viewsets.ViewSet):
+    """
+    ViewSet for retrieving teams associated with a match.
+
+    This ViewSet provides methods for retrieving teams associated with a match,
+    including handling the retrieval of teams, serialization, and response.
+
+    Attributes:
+        None
+    """
+
     def list(self, request, match_id):
+        """
+        Retrieve teams associated with a match.
+
+        This method retrieves teams associated with a match identified by the provided match_id.
+        It handles exceptions if the match is not found, serializes the retrieved teams,
+        and returns a response with the serialized data.
+
+        Args:
+            request: HTTP request object.
+            match_id (int): Identifier for the match.
+
+        Returns:
+            Response: HTTP response object containing serialized teams data.
+
+        """
         try:
             match = Match.objects.get(pk=match_id)
         except Match.DoesNotExist:
@@ -359,7 +710,22 @@ class MatchTeamsViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 
+
 class RaceViewSet(viewsets.ModelViewSet):
+    """
+    View set for managing race instances.
+
+    This view set provides CRUD operations for race instances, including listing, creating, retrieving,
+    updating, and deleting race objects.
+
+    Attributes:
+        queryset: Queryset containing all race instances.
+        serializer_class: Serializer class for race instances.
+        permission_classes: Permission classes for controlling access to race instances.
+        pagination_class: Pagination class for paginating race instances.
+
+    """
+
     queryset = Race.objects.all()
     serializer_class = RaceSerializer
     permission_classes = (IsAdminOrReadOnly, )
@@ -367,19 +733,63 @@ class RaceViewSet(viewsets.ModelViewSet):
 
 
 class LeagueViewSet(viewsets.ModelViewSet):
+    """
+    View set for managing league instances.
+
+    This view set provides CRUD operations for league instances, including listing, creating, retrieving,
+    updating, and deleting league objects.
+
+    Attributes:
+        queryset: Queryset containing all league instances.
+        serializer_class: Serializer class for league instances.
+        permission_classes: Permission classes for controlling access to league instances.
+        pagination_class: Pagination class for paginating league instances.
+
+    """
+
     queryset = League.objects.all()
     serializer_class = LeagueSerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
 
+
 class PlayerToTournamentViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing player registrations to tournaments.
+
+    This ViewSet handles CRUD operations for player registrations to tournaments,
+    including creating, retrieving, updating, and deleting registrations.
+
+    Attributes:
+        queryset (QuerySet): Set of all PlayerToTournament objects.
+        serializer_class: Serializer class for PlayerToTournament objects.
+        permission_classes: Tuple of permission classes required for accessing these views.
+        pagination_class: Class for pagination settings.
+
+    """
+
     queryset = PlayerToTournament.objects.all()
     serializer_class = PlayerToTournamentSerializer
     permission_classes = (IsAdminOrOwnerOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
     def destroy(self, request, *args, **kwargs):
+        """
+        Deletes a player's registration to a tournament.
+
+        This method deletes a player's registration to a tournament. It verifies the user's authentication
+        and checks if the player and season exist. If the user is authenticated, and the player and season
+        exist, it deletes the registration and returns a success response.
+
+        Args:
+            request: Request object.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Response: HTTP response indicating success or failure of the deletion operation.
+        """
         player_id = self.kwargs.get('pk')
         user = request.user
         season = Season.objects.get(is_finished=False)
@@ -405,6 +815,16 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
             return Response({"error": "Player does not registered"}, status=status.HTTP_404_NOT_FOUND)
 
     def get_queryset(self):
+        """
+        Returns a filtered queryset based on query parameters.
+
+        This method filters the queryset based on query parameters 'user' and 'season'.
+        If 'user' or 'season' is provided, it filters the queryset accordingly.
+        If both 'user' and 'season' are provided, it filters the queryset based on both.
+
+        Returns:
+            QuerySet: Filtered queryset.
+        """
         user = self.request.query_params.get('user')
         season = self.request.query_params.get('season')
         try:
@@ -420,7 +840,29 @@ class PlayerToTournamentViewSet(viewsets.ModelViewSet):
 
 
 class GetClanMembers(APIView):
+    """
+    API view for retrieving clan members.
+
+    This class implements the GET method to retrieve clan members using a given clan tag.
+
+    Attributes:
+        None
+    """
+    
     def get(self, request, clan_tag):
+        """
+        Handle GET request to retrieve clan members.
+
+        This method retrieves clan members using the provided clan tag.
+        It returns a response containing the retrieved data or an error message.
+
+        Args:
+            request: HTTP request object.
+            clan_tag (str): Tag of the clan to retrieve members from.
+
+        Returns:
+            Response: HTTP response containing clan member data or error message.
+        """
         try:
             character_data = form_character_data(clan_tag)
             if character_data[1] == status.HTTP_200_OK:
@@ -432,7 +874,31 @@ class GetClanMembers(APIView):
 
 
 class GetMemberLogo(APIView):
+    """
+    API view for retrieving member avatars.
+
+    This class implements the GET method to retrieve member avatars based on region, realm, and character ID.
+
+    Attributes:
+        None
+    """
+    
     def get(self, request, region, realm, character_id):
+        """
+        Handle GET request to retrieve member avatar.
+
+        This method retrieves the avatar of a member using the provided region, realm, and character ID.
+        It returns a response containing the avatar image or an error message if the character is not found.
+
+        Args:
+            request: HTTP request object.
+            region (str): Region of the member.
+            realm (str): Realm of the member.
+            character_id (int): ID of the member character.
+
+        Returns:
+            Response: HTTP response containing avatar image or error message.
+        """
         try:
             avatar = get_avatar(region, realm, character_id)
             if avatar is not None:
@@ -444,13 +910,39 @@ class GetMemberLogo(APIView):
             return Response({"error": str(e)}, status=error_code)
 
 
-class groupStageViewSet(viewsets.ModelViewSet):
+
+class GroupStageViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for handling CRUD operations related to GroupStage model instances.
+
+    This class defines methods for creating, retrieving, updating, and deleting GroupStage instances,
+    along with additional functionality for filtering by season.
+
+    Attributes:
+        queryset (QuerySet): Queryset representing all GroupStage instances.
+        serializer_class (Serializer): Serializer class for GroupStage model.
+        permission_classes (tuple): Tuple of permission classes for view authorization.
+        pagination_class (Pagination): Pagination class for queryset pagination.
+
+    """
+
     queryset = GroupStage.objects.all()
     serializer_class = GroupStageSerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
+        """
+        Returns the queryset of GroupStage instances filtered by season if provided, otherwise returns all instances.
+
+        This method retrieves the 'season' query parameter from the request. If a valid season number is provided,
+        the method filters the queryset to include only GroupStage instances belonging to that season.
+        If no season parameter is provided or the provided season number is invalid, returns all GroupStage instances.
+
+        Returns:
+            QuerySet: Filtered queryset of GroupStage instances.
+        """
+
         season = self.request.query_params.get('season')
         try:
             int(season)
@@ -462,15 +954,38 @@ class groupStageViewSet(viewsets.ModelViewSet):
         return GroupStage.objects.all()
 
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_authenticated(request):
+    """
+    Check if the user is authenticated.
+
+    This function returns a response indicating whether the user making the request is authenticated.
+
+    Args:
+        request: Request object containing metadata about the request.
+
+    Returns:
+        Response: HTTP response indicating the authentication status.
+    """
     return Response(status=status.HTTP_200_OK, data={"is_authenticated": request.user.is_authenticated})
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_manager_or_staff(request):
+    """
+    Check if the user is a manager or staff.
+
+    This function returns a response containing information about whether the user is staff or a manager.
+
+    Args:
+        request: Request object containing metadata about the request.
+
+    Returns:
+        Response: HTTP response containing the user's staff and manager status.
+    """
     user = request.user
     is_manager = Manager.objects.filter(user=user).exists()
     return Response(status=status.HTTP_200_OK, data={
@@ -480,6 +995,19 @@ def is_manager_or_staff(request):
 
 @api_view(['GET'])
 def get_team_and_related_data(request):
+    """
+    Retrieve team and related data based on user ID.
+
+    This function retrieves team and related data based on the provided user ID in the query parameters.
+    It fetches information such as team details, players, team resources, manager contacts, and registration status
+    for the current season.
+
+    Args:
+        request: HTTP request object containing query parameters.
+
+    Returns:
+        Response: JSON response containing team and related data.
+    """
     user_id = request.query_params.get('user', None)
     if user_id is None:
         return Response({"error": "User ID is required in query parameter"}, status=status.HTTP_400_BAD_REQUEST)
@@ -535,6 +1063,18 @@ def get_team_and_related_data(request):
 
 @api_view(['GET'])
 def get_league_by_mmr(request):
+    """
+    Retrieves league information based on MMR and region.
+
+    This function retrieves the league information based on the provided MMR (Match Making Rating) 
+    and region. It returns the league corresponding to the given MMR and region.
+
+    Args:
+        request: HTTP request object containing query parameters.
+
+    Returns:
+        Response: JSON response containing the league information or error message.
+    """
     mmr = request.query_params.get('mmr', None)
     region = request.query_params.get('region', None)
     league_frames = leagueFrames()
@@ -554,6 +1094,18 @@ def get_league_by_mmr(request):
 
 @api_view(['GET'])
 def get_current_tournaments(request):
+    """
+    Retrieves a list of ongoing tournaments.
+
+    This function retrieves a list of ongoing tournaments whose match start time is before or equal to
+    the current time and are not yet finished. It orders the tournaments by their match start time.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: JSON response containing data of ongoing tournaments.
+    """
     tournaments = Tournament.objects.filter(match_start_time__lte=timezone.now(
     ), is_finished=False).order_by('match_start_time')
     serializer = TournamentsSerializer(tournaments, many=True)
@@ -562,6 +1114,20 @@ def get_current_tournaments(request):
 
 @api_view(['GET'])
 def get_current_season(request):
+    """
+    Retrieves the current season.
+
+    This function retrieves the current season object from the database
+    and checks if it has started. If the season has started, it updates
+    the registration status accordingly.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: JSON response containing serialized data of the current season.
+
+    """
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
@@ -575,6 +1141,19 @@ def get_current_season(request):
 
 @api_view(['GET'])
 def get_last_season(request):
+    """
+    Retrieves the last season.
+
+    This function retrieves the most recent season object from the database
+    and returns its serialized data.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: JSON response containing serialized data of the last season.
+
+    """
     seasons = Season.objects.last()
     serializer = SeasonsSerializer(seasons)
     return Response(serializer.data)
@@ -582,6 +1161,19 @@ def get_last_season(request):
 
 @api_view(['GET'])
 def get_last_season_number(request):
+    """
+    Retrieves the number of the last season.
+
+    This function retrieves the number of the most recent season from the database
+    and returns it.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: JSON response containing the number of the last season.
+
+    """
     try:
         season = Season.objects.last()
         season_number = season.number
@@ -593,6 +1185,23 @@ def get_last_season_number(request):
 @api_view(['POST'])
 @permission_classes([permissions.IsAdminUser])
 def randomizeGroups(request):
+    """
+    API endpoint for randomizing teams into groups for a season.
+
+    This endpoint takes a POST request with the number of groups to create and randomizes teams into those groups
+    for the ongoing season. It then returns the group information including group ID, group mark, and the teams
+    in each group.
+
+    Args:
+        request: HTTP request object containing the 'groupCnt' parameter indicating the number of groups.
+
+    Returns:
+        Response: JSON response containing group information if successful, error message otherwise.
+
+    Raises:
+        Season.DoesNotExist: If the ongoing season is not found.
+    """
+
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
@@ -630,6 +1239,19 @@ def randomizeGroups(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def getPlayerToCurrentTournament(request):
+    """
+    Retrieves the player's information for the current tournament.
+
+    This function retrieves the player's information for the ongoing season's tournament.
+    It requires the user to be authenticated.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: Serialized data containing player's tournament information.
+
+    """
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
@@ -647,6 +1269,19 @@ def getPlayerToCurrentTournament(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAdminUser])
 def registredToCurrentSeasonTeams(request):
+    """
+    Retrieves teams registered for the current season.
+
+    This function retrieves teams registered for the ongoing season.
+    It requires admin permissions.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: Serialized data containing registered team information.
+
+    """
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
@@ -664,25 +1299,61 @@ def registredToCurrentSeasonTeams(request):
 
 @api_view(['GET'])
 def groupsToCurrentSeason(request):
+    """
+    API view for retrieving groups for the current season.
+
+    Retrieves group information for the current season that is not finished yet.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: JSON response containing group information for the current season.
+
+    Raises:
+        Http404: If there is no current season available.
+    """
     try:
+        # Retrieve the current season that is not finished yet
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Retrieve group stages for the current season
     groupStages = GroupStage.objects.filter(season=season)
+    
     responseData = []
     for groupStage in groupStages:
+        # Serialize group information
         groupInfo = {
             'id': groupStage.id,
             'groupMark': groupStage.groupMark,
             'teams': [TeamsSerializer(team).data for team in groupStage.teams.all()]
         }
         responseData.append(groupInfo)
+    
     return Response(responseData)
+
 
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAdminUser])
 def postTeamToGroup(request):
+    """
+    Endpoint for adding a team to a group in a tournament.
+
+    This function receives a POST request containing the group stage mark and team ID, 
+    and adds the team to the specified group for the ongoing season. If the group 
+    does not exist, it creates a new group. If the team is already assigned to another 
+    group in the same season, it removes the team from the previous group.
+
+    Args:
+        request: Request object containing data including 'groupStageMark' and 'teamId'.
+
+    Returns:
+        Response: JSON response containing details of the updated group stage.
+
+    """
     groupStageMark = request.data.get('groupStageMark')
     teamId = request.data.get('teamId')
     if groupStageMark is None and teamId is None:
@@ -722,6 +1393,21 @@ def postTeamToGroup(request):
 @api_view(['DELETE'])
 @permission_classes([permissions.IsAdminUser])
 def deleteTeamFromGroup(request):
+    """
+    Delete a team from a group in the current season's group stage.
+
+    This function deletes a specified team from the group stage of the current season. It requires admin
+    permissions to perform this action.
+
+    Args:
+        request (Request): The DELETE request object containing the team ID to be deleted.
+
+    Returns:
+        Response: A response indicating the success or failure of the deletion operation.
+            HTTP_204_NO_CONTENT if successful.
+            HTTP_400_BAD_REQUEST if teamId is missing in the request data.
+            HTTP_404_NOT_FOUND if the specified team is not found.
+    """
     teamId = request.data.get('teamId')
     if teamId is None:
         return Response({"error": "teamId is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -738,6 +1424,18 @@ def deleteTeamFromGroup(request):
 
 @api_view(['GET'])
 def getToursToCurrentSeason(request):
+    """
+    Retrieves tournaments associated with the current season.
+
+    Retrieves tournaments associated with the ongoing season. If no ongoing season exists,
+    returns a 404 error indicating no current season found.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: HTTP response object containing tournament data or error message.
+    """
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
@@ -752,6 +1450,18 @@ def getToursToCurrentSeason(request):
 @api_view(['DELETE'])
 @permission_classes([permissions.IsAdminUser])
 def deleteTournamentsToCurrentSeason(request):
+    """
+    Deletes tournaments associated with the current season.
+
+    Deletes tournaments associated with the ongoing season. If no ongoing season exists,
+    returns a 404 error indicating no current season found.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        Response: HTTP response object indicating successful deletion or error message.
+    """
     try:
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
@@ -765,6 +1475,18 @@ def deleteTournamentsToCurrentSeason(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def getToursByManager(request):
+    """
+    Retrieves tournaments associated with the manager's team.
+
+    This function retrieves tournaments associated with the manager's team for the current season.
+    It fetches the tournaments, processes them, and returns the relevant data in a response.
+
+    Args:
+        request: Request object containing metadata about the HTTP request.
+
+    Returns:
+        Response: JSON response containing tournament data.
+    """
     user = request.user
     season = Season.objects.get(is_finished=False)
     if user.is_anonymous:
@@ -829,6 +1551,18 @@ def getToursByManager(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def setTimeSuggestion(request):
+    """
+    PATCH method to set time suggestion for a tournament.
+
+    This method sets a time suggestion for a tournament based on the request data.
+
+    Args:
+        request (Request): Django Request object containing user and data.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+
+    """
     user = request.user
     id = request.data.get('id')
     if id is None:
@@ -855,6 +1589,18 @@ def setTimeSuggestion(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def acceptTimeSuggestion(request):
+    """
+    PATCH method to accept a time suggestion for a tournament.
+
+    This method accepts a time suggestion for a tournament based on the request data.
+
+    Args:
+        request (Request): Django Request object containing user and data.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+
+    """
     user = request.user
     id = request.data.get('id')
     if id is None:
@@ -884,6 +1630,21 @@ def acceptTimeSuggestion(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_players_by_teams(request):
+    """
+    Retrieves players grouped by teams for the current season.
+
+    This function retrieves players grouped by teams for the current season. It requires authentication
+    and returns a response containing player information grouped by teams.
+
+    Args:
+        request: HTTP request object containing user authentication.
+
+    Returns:
+        Response: HTTP response containing player information grouped by teams.
+                  If authentication fails, returns 401 Unauthorized.
+                  If no current season is found, returns 404 Not Found.
+
+    """
     user = request.user
     if user.is_anonymous:
         return Response({"error": "Authentication credentials were not provided"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -911,6 +1672,18 @@ def get_players_by_teams(request):
 
 @api_view(['GET'])
 def get_season_by_number(request, season):
+    """
+    Retrieve season data by season number.
+
+    This function retrieves group and playoff data for a given season number.
+
+    Args:
+        request: HTTP request object.
+        season (int): Season number to retrieve data for.
+
+    Returns:
+        Response: JSON response containing group and playoff data.
+    """
     groups_data, playoff_data = get_season_data(season)
     if groups_data is None and playoff_data is None:
         return Response({"error": "Season with number " + str(season) + " not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -919,6 +1692,19 @@ def get_season_by_number(request, season):
 
 @api_view(['GET'])
 def get_team_by_id(request, team_id):
+    """
+    Retrieve team data by team ID.
+
+    This function retrieves detailed data for a team identified by its ID,
+    including team information, resources, manager details, player details, and tournament history.
+
+    Args:
+        request: HTTP request object.
+        team_id (int): ID of the team to retrieve data for.
+
+    Returns:
+        Response: JSON response containing detailed team data.
+    """
     try:
         team = Team.objects.get(id=team_id)
     except Team.DoesNotExist:
@@ -957,6 +1743,19 @@ def get_team_by_id(request, team_id):
 
 @api_view(['GET'])
 def get_player_by_id(request, player_id):
+    """
+    Retrieve player information and related matches by player ID.
+
+    This function retrieves player information and matches related to the player specified by the ID.
+    It returns a response containing player details and match data.
+
+    Args:
+        request: HTTP request object.
+        player_id (int): ID of the player to retrieve.
+
+    Returns:
+        Response: JSON response containing player information and related matches.
+    """
     try:
         player = Player.objects.get(id=player_id)
     except Player.DoesNotExist:
@@ -982,6 +1781,19 @@ def get_player_by_id(request, player_id):
 
 @api_view(['GET'])
 def get_tournament_by_id(request, tournament_id):
+    """
+    Retrieve tournament information and related matches by tournament ID.
+
+    This function retrieves tournament information and matches related to the tournament specified by the ID.
+    It returns a response containing tournament details and match data.
+
+    Args:
+        request: HTTP request object.
+        tournament_id (int): ID of the tournament to retrieve.
+
+    Returns:
+        Response: JSON response containing tournament information and related matches.
+    """
     try:
         tournament = Tournament.objects.get(id=tournament_id)
     except Tournament.DoesNotExist:
@@ -1021,6 +1833,18 @@ def get_tournament_by_id(request, tournament_id):
 
 @api_view(['GET'])
 def get_statistics(request):
+    """
+    Endpoint to retrieve statistics related to players, matches, and seasons.
+
+    This endpoint retrieves various statistics such as player counts, league counts,
+    race distribution, match counts, and matchup outcomes.
+
+    Args:
+        request: Request object.
+
+    Returns:
+        Response: JSON response containing the retrieved statistics.
+    """
     seasons = Season.objects.all().prefetch_related('tournamentregistration_set')
     in_season_teams = {}
     max_cnt = 0
@@ -1086,6 +1910,17 @@ def get_statistics(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def post_manager_contacts(request):
+    """
+    Endpoint for adding manager contacts.
+
+    This view function allows authenticated users to add manager contacts by providing a list of URLs.
+
+    Args:
+        request (Request): HTTP request object containing user data and list of URLs.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     user = request.user
     urls = request.data.get('urls')
     if not urls or not type(urls) is list:
@@ -1098,6 +1933,17 @@ def post_manager_contacts(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def patch_manager_contact(request):
+    """
+    Endpoint for updating manager contact.
+
+    This view function allows authenticated users to update a manager contact URL.
+
+    Args:
+        request (Request): HTTP request object containing user data, contact ID, and updated data.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     user = request.user
     contact_id = request.data.get('id')
     data = request.data.get('data')
@@ -1113,6 +1959,17 @@ def patch_manager_contact(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def patch_team_resource_url(request):
+    """
+    Endpoint for updating team resource URL.
+
+    This view function allows authenticated users to update a team resource URL.
+
+    Args:
+        request (Request): HTTP request object containing user data, resource ID, and updated data.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     user = request.user
     res_id = request.data.get('id')
     data = request.data.get('data')
@@ -1128,6 +1985,17 @@ def patch_team_resource_url(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def patch_team_resource_name(request):
+    """
+    Endpoint for updating team resource name.
+
+    This view function allows authenticated users to update a team resource name.
+
+    Args:
+        request (Request): HTTP request object containing user data and resource ID.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     user = request.user
     res_id = request.data.get('id')
     data = request.data.get('data')
@@ -1143,6 +2011,17 @@ def patch_team_resource_name(request):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_manager_contact(request):
+    """
+    Endpoint for deleting manager contact.
+
+    This view function allows authenticated users to delete a manager contact.
+
+    Args:
+        request (Request): HTTP request object containing user data and contact ID.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     user = request.user
     contact_id = request.data.get('id')
     try:
@@ -1156,6 +2035,17 @@ def delete_manager_contact(request):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_team_resource(request):
+    """
+    Endpoint for deleting team resource.
+
+    This view function allows authenticated users to delete a team resource.
+
+    Args:
+        request (Request): HTTP request object containing user data and resource ID.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     user = request.user
     res_id = request.data.get('id')
     try:
@@ -1169,6 +2059,17 @@ def delete_team_resource(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def post_team_resource(request):
+    """
+    Endpoint for creating team resource.
+
+    This view function allows authenticated users to create a team resource.
+
+    Args:
+        request (Request): HTTP request object containing user data.
+
+    Returns:
+        Response: HTTP response containing the ID of the created resource and the ID of the associated team.
+    """
     user = request.user
     team = Team.objects.get(user=user)
     resource = TeamResource.objects.create(
@@ -1179,6 +2080,17 @@ def post_team_resource(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def post_manager_contact(request):
+    """
+    Endpoint for creating manager contact.
+
+    This view function allows authenticated users to create a manager contact.
+
+    Args:
+        request (Request): HTTP request object containing user data.
+
+    Returns:
+        Response: HTTP response containing the ID of the created contact.
+    """
     user = request.user
     contact = ManagerContact.objects.create(user=user, url='')
     return Response({"id": contact.id}, status=status.HTTP_200_OK)
@@ -1187,6 +2099,17 @@ def post_manager_contact(request):
 @api_view(['PATCH'])
 @permission_classes([permissions.IsAdminUser])
 def set_staff_user_by_id(request):
+    """
+    Endpoint for setting staff status of a user by ID.
+
+    This view function allows admin users to set the staff status of a user by their ID.
+
+    Args:
+        request (Request): HTTP request object containing the user ID and the desired state.
+
+    Returns:
+        Response: HTTP response indicating success or failure.
+    """
     state = request.data.get('state')
     user_id = request.data.get('id')
     if user_id is None:
@@ -1220,6 +2143,17 @@ def set_staff_user_by_id(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAdminUser])
 def get_all_users(request):
+    """
+    Endpoint for retrieving all users.
+
+    This view function allows admin users to retrieve information about all users.
+
+    Args:
+        request (Request): HTTP request object.
+
+    Returns:
+        Response: HTTP response containing user data.
+    """
     if request.user.is_superuser == False:
         users = User.objects.filter(is_superuser=False, is_staff=False)
     else:
