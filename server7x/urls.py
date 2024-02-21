@@ -21,7 +21,7 @@ router.register(r'tournament_registration',
                 views.TournamentRegistrationsViewSet, basename='tournament_registration')
 router.register(r'player_to_tournament',
                 views.PlayerToTournamentViewSet, basename='player_to_tournament')
-router.register(r'groupStages', views.groupStageViewSet,
+router.register(r'groupStages', views.GroupStageViewSet,
                 basename='groupStages')
 
 
