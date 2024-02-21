@@ -29,9 +29,12 @@ async def get_blizzard_league_data(region, league):
     Returns:
         int or None: The maximum rating of the specified league, or None if data retrieval fails.
     """
+    # Get the Blizzard API token from configuration
     token = config['BLIZZARD']['BLIZZARD_API_TOKEN']
+    
     # Get current season
     season = await get_season()
+    
     # Determine region multiplier
     match region:
         case 'eu':
@@ -40,40 +43,52 @@ async def get_blizzard_league_data(region, league):
             region_multi = 1
         case 'kr':
             region_multi = 2
+    
     # API URL for fetching league data
     api_url = f'https://{region}.api.blizzard.com/data/sc2/league/{season}/201/0/{league - 1}?locale=en_US&access_token={token}'
+    
+    # Send GET request to Blizzard API
     response = requests.get(api_url)
+    
     # Handle different HTTP status codes
     if response.status_code == 200:
+        # Data retrieval successful
         data = response.json()
         for tier in data['tier']:
             if tier['id'] == 0:
                 if tier['max_rating']:
+                    # Return max rating if available
                     return tier['max_rating']
                 else:
+                    # Calculate max rating based on previous season's data if not available
                     last_max_id = region_multi * 6 + league - 1
                     try:
                         last_max = LeagueFrame.get(id=last_max_id).frame_max
                     except:
                         last_max = 0
-                return last_max + 500
+                    return last_max + 500
 
     elif response.status_code == 401:
+        # Unauthorized access, get new access token and retry
         get_new_access_token()
         return await get_blizzard_league_data(region, league)
 
     elif response.status_code == 404:
+        # Data not found for current season, try previous season
         api_url = f'https://{region}.api.blizzard.com/data/sc2/league/{season - 1}/201/0/{league - 1}?locale=en_US&access_token={token}'
         response = requests.get(api_url)
         if response.status_code == 200:
+            # Data retrieval successful from previous season
             data = response.json()
             for tier in data['tier']:
                 if tier['id'] == 0:
                     return tier['max_rating']
         elif response.status_code == 401:
+            # Unauthorized access, get new access token and retry
             get_new_access_token()
             return await get_blizzard_league_data(region, league)
         else:
+            # Other errors, return None
             return None
 
 
@@ -85,24 +100,40 @@ async def get_season():
     Returns:
         str or None: The Battle.net ID of the current season, if available. None if data is unavailable.
     """
+    # Get current time in UTC and convert it to ISO 8601 format
     current_time = datetime.datetime.utcnow().isoformat()
+    
     # URL to fetch current season data
-    get_season = f'https://sc2pulse.nephest.com/sc2/api/season/state/{current_time}Z/DAY'
+    get_season_url = f'https://sc2pulse.nephest.com/sc2/api/season/state/{current_time}Z/DAY'
 
-    response = requests.get(get_season)
+    # Send GET request to the API
+    response = requests.get(get_season_url)
 
+    # Check if the request was successful (status code 200)
     if response.status_code == 200:
+        # Parse response JSON data
         data = response.json()
+        
+        # Check if data is not empty and is a list
         if data and isinstance(data, list):
+            # Extract the first item from the list (assuming it contains the current season data)
             season = data[0]
+            
+            # Check if the required keys are present in the season data
             if 'season' in season and 'battlenetId' in season['season']:
+                # Extract the Battle.net ID of the current season
                 battlenetId = season['season']['battlenetId']
+                
+                # Return the Battle.net ID
                 return battlenetId
             else:
+                # Return None if required keys are missing in season data
                 return None
         else:
+            # Return None if data is empty or not a list
             return None
     else:
+        # Return None if the request was not successful
         return None
 
 
@@ -120,26 +151,35 @@ def get_new_access_token():
     Raises:
         int: The HTTP status code if the request fails.
     """
+    # Define the token endpoint URL
     token_url = 'https://oauth.battle.net/token'
 
+    # Retrieve client credentials from configuration
     client_id = config['BLIZZARD']['BLIZZARD_API_ID']
     client_secret = config['BLIZZARD']['BLIZZARD_API_SECRET']
 
+    # Data payload for the POST request
     data = {
         'grant_type': 'client_credentials',
     }
 
+    # Send POST request to obtain access token
     response = requests.post(token_url, data=data,
                              auth=(client_id, client_secret))
+    
     # Handle response
-    if response.status_code == 200:
+    if response.status_code == 200:  # If request is successful
+        # Update configuration with new access token
         config.set('BLIZZARD', 'BLIZZARD_API_TOKEN',
                    response.json()['access_token'])
+        # Write updated configuration to file
         with open('.ini', 'w') as f:
             config.write(f)
+        # Return the new access token
         return response.json()['access_token']
-    else:
-        return (response.status_code)
+    else:  # If request fails
+        # Return the HTTP status code
+        return response.status_code
 
 
 # Function to fetch Blizzard data
@@ -172,6 +212,12 @@ def get_blizzard_data(region, realm, character_id):
         return Response({"error": "Character not found"}, status=404)
 
 
+# Import necessary modules
+from PIL import Image, ImageOps
+from io import BytesIO
+from django.core.files.uploadedfile import InMemoryUploadedFile
+import random
+
 # Function to distribute teams to groups
 def distribute_teams_to_groups(teams, num_groups):
     """
@@ -186,30 +232,44 @@ def distribute_teams_to_groups(teams, num_groups):
               If there's an error with the number of groups, returns {'error': 'Invalid number of groups', 'status': 400}.
     """
     try:
+        # Shuffle the teams to randomize their order
         random.shuffle(teams)
+        # Convert num_groups to an integer
         num_groups = int(num_groups)
     except:
+        # If num_groups conversion fails, return an error
         return {"error": "Invalid number of groups", "status": 400}
+    
     try:
-        # Delete existing group stage data for the season
+        # Delete existing group stage data for the season if any
         GroupStage.objects.filter(season=teams[0].season).delete()
     except IndexError:
+        # Catching IndexError if teams list is empty
         pass
+    
+    # Calculate how many teams should be in each group
     teams_per_group = len(teams) // int(num_groups)
     if teams_per_group == 0:
         teams_per_group = 1
+    
+    # Loop through each group
     for group_mark in range(ord('A'), ord('A') + num_groups):
         group_mark = chr(group_mark)
         try:
+            # Get or create GroupStage object for the group
             group_stage, created = GroupStage.objects.get_or_create(
                 season=teams[0].season,
                 groupMark=group_mark
             )
+            # Add teams to the group stage
             for i in range(teams_per_group):
                 team = teams.pop(0).team
                 group_stage.teams.add(team)
         except IndexError:
+            # Catch IndexError if there are no more teams to distribute
             break
+    
+    # Add remaining teams to groups if any
     cnt = 0
     for remaining_team in teams:
         group_stage, created = GroupStage.objects.get_or_create(
@@ -218,6 +278,8 @@ def distribute_teams_to_groups(teams, num_groups):
         )
         group_stage.teams.add(remaining_team.team)
         cnt += 1
+    
+    # Return status indicating success
     return {"status": 201}
 
 
@@ -241,21 +303,31 @@ def image_compressor(image, team_name=None):
     If the resulting image name exceeds 100 characters, it will be truncated to 90 characters
     before appending the '.png' extension.
     """
+    # Define maximum size for the compressed image
     max_size = (720, 720)
+    # Open the image file
     imagePl = Image.open(image)
+    # Resize the image to fit within the maximum size, using Lanczos resampling method
     imagePl.thumbnail(max_size, Image.Resampling.LANCZOS)
+    # Create an in-memory byte stream to store the compressed image
     image_buffer = BytesIO()
+    # Save the compressed image as PNG format to the in-memory byte stream
     imagePl.save(image_buffer, format='PNG')
+    # Determine the name for the compressed image file
     if team_name:
         name = f'{team_name}.png'
     else:
         name = image.name
+    # Truncate the name if it exceeds 100 characters
     if len(name) > 100:
         name = image.name[:90] + '.png'
+    # Create an InMemoryUploadedFile object for the compressed image
     image_file = InMemoryUploadedFile(
         image_buffer, None, name, 'image/png', image_buffer.tell(), None
     )
+    # Return the compressed image file object
     return image_file
+
 
 
 # Function to fetch avatar
@@ -279,16 +351,22 @@ def get_avatar(region, realm, character_id):
             while fetching the data from the Blizzard API.
     """
     try:
+        # Fetch data from the Blizzard API
         response = get_blizzard_data(region, realm, character_id)
+        # If character not found, return None
         if response.status_code == 404:
             return None
+        # Parse response JSON
         data = response.json()
+        # Extract avatar URL
         avatar = data['avatarUrl']
         return avatar
     except requests.exceptions.HTTPError as e:
+        # If character not found, return None
         if e.response.status_code == 404:
             return None
         else:
+            # Re-raise HTTPError if it's not a 404
             raise e
 
 
@@ -303,6 +381,7 @@ def leagueFrames():
               Values represent the maximum frame for the respective league and region.
     """
     league_frames = {
+        # Fetch maximum frame values for each league and region
         'EU_1': LeagueFrame.objects.get(region='eu', league=1).frame_max,
         'EU_2': LeagueFrame.objects.get(region='eu', league=2).frame_max,
         'EU_3': LeagueFrame.objects.get(region='eu', league=3).frame_max,
@@ -341,6 +420,7 @@ def get_league(mmr, league_frames, region):
 
     """
     mmr = int(mmr)
+    # Determine league based on MMR
     if (mmr > league_frames[f'{region}_6']):
         league_max = 7
     elif (mmr > league_frames[f'{region}_5']):
@@ -356,6 +436,7 @@ def get_league(mmr, league_frames, region):
     else:
         league_max = 1
     return league_max
+
 
 
 # Function to format character data
@@ -521,6 +602,7 @@ def get_season_data(season):
         max_stage = second_max_stage
 
     if max_stage:
+        # Gather stage numbers
         for stage in range(1, max_stage + 1):
             stage_nums.append(stage)
         if second_max_stage != 0:
@@ -528,10 +610,12 @@ def get_season_data(season):
 
         stages = {}
         for stage in stage_nums:
+            # Retrieve tournaments for the current stage
             tournaments = season_first.tournament_set.filter(
                 group__isnull=True, stage=stage).order_by('inline_number').prefetch_related('match_set')
 
             for tournament in tournaments:
+                # Count wins for each team in the tournament
                 matches = tournament.match_set.all()
                 team_one_wins = 0
                 team_two_wins = 0
@@ -540,6 +624,7 @@ def get_season_data(season):
                         team_one_wins += 1
                     elif match.winner and match.winner.team == tournament.team_two:
                         team_two_wins += 1
+                # Store tournament data
                 stages[str(tournament.inline_number)] = {
                     'teamOne': tournament.team_one.name,
                     'teamTwo': tournament.team_two.name,
