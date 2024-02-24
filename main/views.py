@@ -1,4 +1,5 @@
 import configparser
+import ast
 
 from main.models import *
 from main.serializers import *
@@ -9,10 +10,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from djoser.utils import logout_user
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import Q, F
+from django.db.models import Q, F, Count, Max
 
 from .permissions import *
 from .utils import distribute_teams_to_groups, image_compressor, get_season_data
@@ -38,7 +38,8 @@ class TeamsViewSet(viewsets.ModelViewSet):
     Provides `list`, `create`, `retrieve`, `update`, and `destroy` actions.
     """
     serializer_class = TeamsSerializer  # Serializer class for TeamsViewSet
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)  # Define permission classes
+    # Define permission classes
+    permission_classes = (IsAdminOrOwnerOrReadOnly,)
     pagination_class = CustomPageNumberPagination  # Define pagination class
 
     def get_queryset(self):
@@ -49,9 +50,11 @@ class TeamsViewSet(viewsets.ModelViewSet):
             queryset: A queryset of Team instances filtered based on query parameters.
         """
         queryset = Team.objects.all()  # Get all Team instances
-        tag = self.request.query_params.get('tag')  # Get tag parameter from request
+        tag = self.request.query_params.get(
+            'tag')  # Get tag parameter from request
         if tag is not None:
-            queryset = queryset.filter(tag=tag)  # Filter queryset based on tag parameter
+            # Filter queryset based on tag parameter
+            queryset = queryset.filter(tag=tag)
         return queryset
 
     def perform_create(self, serializer):
@@ -67,13 +70,15 @@ class TeamsViewSet(viewsets.ModelViewSet):
         if serializer.validated_data['user'] != self.request.user:
             raise exceptions.PermissionDenied(
                 "You can only create objects with your own id")  # Permission check
-        logo = serializer.validated_data.get('logo')  # Get logo data from serializer
+        logo = serializer.validated_data.get(
+            'logo')  # Get logo data from serializer
         if logo:
             # Compress image and update serializer data
             image_file = image_compressor(
                 logo, serializer.validated_data['tag'])
             serializer.validated_data['logo'] = image_file
-        serializer.save(user=self.request.user)  # Save serializer data with user
+        # Save serializer data with user
+        serializer.save(user=self.request.user)
 
     def perform_update(self, serializer):
         """
@@ -82,13 +87,15 @@ class TeamsViewSet(viewsets.ModelViewSet):
         Args:
             serializer: Serializer instance for Team.
         """
-        logo = serializer.validated_data.get('logo')  # Get logo data from serializer
+        logo = serializer.validated_data.get(
+            'logo')  # Get logo data from serializer
         if logo:
             # Compress image and update serializer data
             image_file = image_compressor(
                 logo, Team.objects.get(id=serializer.instance.id).tag)
             serializer.validated_data['logo'] = image_file
-        serializer.save(user=self.request.user)  # Save serializer data with user
+        # Save serializer data with user
+        serializer.save(user=self.request.user)
 
 
 class PlayersViewSet(viewsets.ModelViewSet):
@@ -97,8 +104,10 @@ class PlayersViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = PlayersSerializer
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)  # Set permission classes for the viewset
-    pagination_class = CustomPageNumberPagination  # Set pagination class for the viewset
+    # Set permission classes for the viewset
+    permission_classes = (IsAdminOrOwnerOrReadOnly,)
+    # Set pagination class for the viewset
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         """
@@ -121,7 +130,7 @@ class PlayersViewSet(viewsets.ModelViewSet):
 
         Args:
             serializer (PlayersSerializer): The serializer instance used for creating the object.
-        
+
         Raises:
             PermissionDenied: If the creating user is not the same as the request user.
         """
@@ -135,7 +144,8 @@ class PlayersViewSet(viewsets.ModelViewSet):
             elif serializer.validated_data['region'] == 3:
                 region = 'KR'
 
-            league = get_league(serializer.validated_data['mmr'], league_frames, region)
+            league = get_league(
+                serializer.validated_data['mmr'], league_frames, region)
             serializer.validated_data['league'] = league
 
         # Check if the creating user is the same as the request user
@@ -153,9 +163,12 @@ class ManagersViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Manager.objects.all()  # Retrieve all Manager objects
-    serializer_class = ManagersSerializer  # Use ManagersSerializer for serialization
-    permission_classes = (IsAdminOrOwnerOrReadOnly, )  # Permission classes for view level authorization
-    pagination_class = CustomPageNumberPagination  # Custom pagination class for pagination
+    # Use ManagersSerializer for serialization
+    serializer_class = ManagersSerializer
+    # Permission classes for view level authorization
+    permission_classes = (IsAdminOrOwnerOrReadOnly, )
+    # Custom pagination class for pagination
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
         """
@@ -176,7 +189,8 @@ class ManagersViewSet(viewsets.ModelViewSet):
         """
 
         queryset = Manager.objects.all()  # Initial queryset containing all Manager objects
-        user = self.request.query_params.get('user')  # Retrieve the 'user' query parameter if provided
+        # Retrieve the 'user' query parameter if provided
+        user = self.request.query_params.get('user')
 
         # If 'user' query parameter is provided, filter the queryset to include only Manager objects
         # associated with the specified user
@@ -185,21 +199,20 @@ class ManagersViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-
 class ManagerContactsViewSet(viewsets.ModelViewSet):
     """
     A viewset for managing manager contacts.
     """
     # Specify the queryset to retrieve all ManagerContact objects.
     queryset = ManagerContact.objects.all()
-    
+
     # Specify the serializer class to use for serialization and deserialization.
     serializer_class = ManagerContactsSerializer
-    
+
     # Specify the permission classes for this viewset.
     # Users must be admins or owners to modify objects, while others can only read.
     permission_classes = (IsAdminOrOwnerOrReadOnly,)
-    
+
     # Specify the pagination class to paginate the queryset.
     pagination_class = CustomPageNumberPagination
 
@@ -228,17 +241,20 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
     A ViewSet for interacting with TeamResource objects.
     """
     queryset = TeamResource.objects.all()  # Retrieve all TeamResource objects
-    serializer_class = TeamResourcesSerializer  # Use the TeamResourcesSerializer for serialization
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)  # Set permission classes for viewset
-    pagination_class = CustomPageNumberPagination  # Use custom pagination class for pagination
+    # Use the TeamResourcesSerializer for serialization
+    serializer_class = TeamResourcesSerializer
+    # Set permission classes for viewset
+    permission_classes = (IsAdminOrOwnerOrReadOnly,)
+    # Use custom pagination class for pagination
+    pagination_class = CustomPageNumberPagination
 
     def perform_create(self, serializer):
         """
         Perform additional actions upon object creation.
-        
+
         Args:
             serializer (TeamResourcesSerializer): The serializer instance.
-            
+
         Raises:
             PermissionDenied: If user attempting to create object is not the owner.
         """
@@ -251,15 +267,17 @@ class TeamResourcesViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Retrieve the queryset based on provided query parameters.
-        
+
         Returns:
             queryset: Filtered queryset based on provided query parameters.
         """
         queryset = TeamResource.objects.all()  # Retrieve all TeamResource objects
-        team = self.request.query_params.get('team')  # Get 'team' query parameter from request
+        # Get 'team' query parameter from request
+        team = self.request.query_params.get('team')
 
         if team is not None:
-            queryset = queryset.filter(team=team)  # Filter queryset by 'team' if provided
+            # Filter queryset by 'team' if provided
+            queryset = queryset.filter(team=team)
         return queryset
 
 
@@ -334,7 +352,7 @@ class SeasonsViewSet(viewsets.ModelViewSet):
                     season=instance, group__isnull=True, stage=highest_stage)
                 # Set winner of the season to winner of the tournament, if exists
                 instance.winner = tournament.winner if tournament.winner else None
-        
+
         # Serialize the updated instance with partial data
         serializer = self.get_serializer(
             instance, data=request.data, partial=True)
@@ -408,15 +426,15 @@ class TournamentsViewSet(viewsets.ModelViewSet):
             team_two=serializer.validated_data['team_two'],
             match_start_time=serializer.validated_data['match_start_time']
         ).first()
-        
+
         # Check if team_one and team_two are the same
         if serializer.validated_data['team_one'] == serializer.validated_data['team_two']:
             raise exceptions.ValidationError("Teams can't be equal")
-        
+
         # Check if a tournament already exists with the same attributes
         if tournament:
             raise exceptions.PermissionDenied("Tournament is already created")
-        
+
         # If 'group' is provided in the validated data
         if 'group' in serializer.validated_data:
             try:
@@ -468,13 +486,15 @@ class TournamentsViewSet(viewsets.ModelViewSet):
                                 team_one=serializer.validated_data['team_one']
                             )
                             if tournament and serializer.validated_data['match_start_time']:
-                                tournament.match_start_time = serializer.validated_data['match_start_time']
+                                tournament.match_start_time = serializer.validated_data[
+                                    'match_start_time']
                                 tournament.save()
                         except Tournament.DoesNotExist:
                             try:
                                 # Attempt to find a tournament with the same attributes but different group
                                 tournament = Tournament.objects.get(
-                                    season=Season.objects.get(is_finished=False),
+                                    season=Season.objects.get(
+                                        is_finished=False),
                                     group=serializer.validated_data['group'],
                                     team_one=serializer.validated_data['team_one'],
                                     team_two=serializer.validated_data['team_two'],
@@ -627,7 +647,6 @@ class MatchesViewSet(viewsets.ModelViewSet):
             serializer.save(user=self.request.user)
 
 
-
 class MatchPlayersViewSet(viewsets.ViewSet):
     """
     ViewSet for handling player matches.
@@ -662,7 +681,6 @@ class MatchPlayersViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 
-
 """
 ViewSet for retrieving teams associated with a match.
 
@@ -672,6 +690,7 @@ including handling the retrieval of teams, serialization, and response.
 Attributes:
     None
 """
+
 
 class MatchTeamsViewSet(viewsets.ViewSet):
     """
@@ -710,7 +729,6 @@ class MatchTeamsViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 
-
 class RaceViewSet(viewsets.ModelViewSet):
     """
     View set for managing race instances.
@@ -728,6 +746,27 @@ class RaceViewSet(viewsets.ModelViewSet):
 
     queryset = Race.objects.all()
     serializer_class = RaceSerializer
+    permission_classes = (IsAdminOrReadOnly, )
+    pagination_class = CustomPageNumberPagination
+
+
+class MapsViewSet(viewsets.ModelViewSet):
+    """
+    View set for managing map instances.
+
+    This view set provides CRUD operations for map instances, including listing, creating, retrieving,
+    updating, and deleting map objects.
+
+    Attributes:
+        queryset: Queryset containing all map instances.
+        serializer_class: Serializer class for map instances.
+        permission_classes: Permission classes for controlling access to map instances.
+        pagination_class: Pagination class for paginating map instances.
+
+    """
+
+    queryset = Map.objects.all()
+    serializer_class = MapSerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
 
@@ -751,7 +790,6 @@ class LeagueViewSet(viewsets.ModelViewSet):
     serializer_class = LeagueSerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = CustomPageNumberPagination
-
 
 
 class PlayerToTournamentViewSet(viewsets.ModelViewSet):
@@ -848,7 +886,7 @@ class GetClanMembers(APIView):
     Attributes:
         None
     """
-    
+
     def get(self, request, clan_tag):
         """
         Handle GET request to retrieve clan members.
@@ -882,7 +920,7 @@ class GetMemberLogo(APIView):
     Attributes:
         None
     """
-    
+
     def get(self, request, region, realm, character_id):
         """
         Handle GET request to retrieve member avatar.
@@ -908,7 +946,6 @@ class GetMemberLogo(APIView):
         except Exception as e:
             error_code = e.response.status_code
             return Response({"error": str(e)}, status=error_code)
-
 
 
 class GroupStageViewSet(viewsets.ModelViewSet):
@@ -952,7 +989,6 @@ class GroupStageViewSet(viewsets.ModelViewSet):
         if season:
             return GroupStage.objects.filter(season=season)
         return GroupStage.objects.all()
-
 
 
 @api_view(['GET'])
@@ -1318,10 +1354,10 @@ def groupsToCurrentSeason(request):
         season = Season.objects.get(is_finished=False)
     except Season.DoesNotExist:
         return Response({"error": "No current season"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     # Retrieve group stages for the current season
     groupStages = GroupStage.objects.filter(season=season)
-    
+
     responseData = []
     for groupStage in groupStages:
         # Serialize group information
@@ -1331,9 +1367,8 @@ def groupsToCurrentSeason(request):
             'teams': [TeamsSerializer(team).data for team in groupStage.teams.all()]
         }
         responseData.append(groupInfo)
-    
-    return Response(responseData)
 
+    return Response(responseData)
 
 
 @api_view(['POST'])
@@ -1834,75 +1869,77 @@ def get_tournament_by_id(request, tournament_id):
 @api_view(['GET'])
 def get_statistics(request):
     """
-    Endpoint to retrieve statistics related to players, matches, and seasons.
+    Retrieve statistics related to players, leagues, races, matches, and maps.
 
-    This endpoint retrieves various statistics such as player counts, league counts,
-    race distribution, match counts, and matchup outcomes.
+    This function retrieves various statistics related to players, leagues, races, matches, and maps.
+    It returns a JSON response containing these statistics.
 
     Args:
-        request: Request object.
+        request: HTTP request object.
 
     Returns:
-        Response: JSON response containing the retrieved statistics.
+        Response: JSON response containing statistics related to players, leagues, races, matches, and maps.
     """
-    seasons = Season.objects.all().prefetch_related('tournamentregistration_set')
-    in_season_teams = {}
-    max_cnt = 0
-    for season in seasons:
-        cnt = 0
-        for _ in season.tournamentregistration_set.all():
-            cnt += 1
-        if (cnt > max_cnt):
-            max_cnt = cnt
-        in_season_teams[season.number] = cnt
-    players = Player.objects.all()
-    players_cnt = Player.objects.all().count()
-    player_gm_league_cnt = players.filter(league=7).count()
-    player_m_league_cnt = players.filter(league=6).count()
-    player_dm_league_cnt = players.filter(league=5).count()
-    other_leagues_cnt = players_cnt - player_gm_league_cnt - \
-        player_m_league_cnt - player_dm_league_cnt
-    player_zerg_cnt = players.filter(race=1).count()
-    player_terran_cnt = players.filter(race=2).count()
-    player_protoss_cnt = players.filter(race=3).count()
-    player_random_cnt = players.filter(race=4).count()
-    games = Match.objects.filter(
-        player_one__isnull=False, player_two__isnull=False).prefetch_related('player_one', 'player_two')
-    matches_cnt = games.count()
-    tvz = games.filter(Q(player_one__race=2, player_two__race=1)
-                       | Q(player_one__race=1, player_two__race=2))
-    tvp = games.filter(Q(player_one__race=2, player_two__race=3)
-                       | Q(player_one__race=3, player_two__race=2))
-    pvz = games.filter(Q(player_one__race=3, player_two__race=1)
-                       | Q(player_one__race=1, player_two__race=3))
-    tvz_cnt = tvz.count()
-    tvp_cnt = tvp.count()
-    pvz_cnt = pvz.count()
-    tvz_terran_wins = tvz.filter(winner__race=2).count()
-    tvp_terran_wins = tvp.filter(winner__race=2).count()
-    pvz_protoss_wins = pvz.filter(winner__race=3).count()
-    mirrors_cnt = games.filter(player_one__race=F('player_two__race')).count()
+    players_cnt = Player.objects.count()
+    teams_in_season_cnt = Season.objects.annotate(teamCount=Count(
+        'tournamentregistration')).values('number', 'teamCount')
+    league_stats = (
+        Player.objects
+        .filter(league__in=[5, 6, 7])
+        .values('league')
+        .annotate(playerCount=Count('id'))
+    )
+
+    league_stats = list(league_stats)
+    league_stats.append({
+        'league': 0,
+        'playerCount': players_cnt - sum([x['playerCount'] for x in league_stats]),
+    })
+
+    race_stats = (
+        Player.objects
+        .values('race')
+        .annotate(playerCount=Count('id'))
+    )
+    
+    match_stats = {
+        'totalMatches': Match.objects.count(),
+        'mirrors': Match.objects.filter(player_one__race=F('player_two__race')).count(),
+        'tvzCount': Match.objects.filter(Q(player_one__race=2, player_two__race=1) | Q(player_one__race=1, player_two__race=2)).count(),
+        'tvzTerranWins': Match.objects.filter(Q(player_one__race=2, player_two__race=1) | Q(player_one__race=1, player_two__race=2), winner__race=2).count(),
+        'tvpCount': Match.objects.filter(Q(player_one__race=2, player_two__race=3) | Q(player_one__race=3, player_two__race=2)).count(),
+        'tvpTerranWins': Match.objects.filter(Q(player_one__race=2, player_two__race=3) | Q(player_one__race=3, player_two__race=2), winner__race=2).count(),
+        'pvzCount': Match.objects.filter(Q(player_one__race=3, player_two__race=1) | Q(player_one__race=1, player_two__race=3)).count(),
+        'pvzProtossWins': Match.objects.filter(Q(player_one__race=3, player_two__race=1) | Q(player_one__race=1, player_two__race=3), winner__race=3).count(),
+    }
+
+    maps_data = (
+        Map.objects
+        .annotate(
+            tvzCount=Count('match', filter=Q(match__in=Match.objects.filter(
+                Q(player_one__race=2, player_two__race=1) | Q(player_one__race=1, player_two__race=2)))),
+            tvzTerranWins=Count('match', filter=Q(match__in=Match.objects.filter(
+                Q(player_one__race=2, player_two__race=1) | Q(player_one__race=1, player_two__race=2)), match__winner__race=2)),
+            tvpCount=Count('match', filter=Q(match__in=Match.objects.filter(
+                Q(player_one__race=2, player_two__race=3) | Q(player_one__race=3, player_two__race=2)))),
+            tvpTerranWins=Count('match', filter=Q(match__in=Match.objects.filter(
+                Q(player_one__race=2, player_two__race=3) | Q(player_one__race=3, player_two__race=2)), match__winner__race=2)),
+            pvzCount=Count('match', filter=Q(match__in=Match.objects.filter(
+                Q(player_one__race=3, player_two__race=1) | Q(player_one__race=1, player_two__race=3)))),
+            pvzProtossWins=Count('match', filter=Q(match__in=Match.objects.filter(
+                Q(player_one__race=3, player_two__race=1) | Q(player_one__race=1, player_two__race=3)), match__winner__race=3)),
+        )
+        .values('id', 'name', 'tvzCount', 'tvzTerranWins', 'tvpCount', 'tvpTerranWins', 'pvzCount', 'pvzProtossWins')
+    )
 
     response_data = {
-        "playerCnt": players_cnt,
-        "maxTeamsInSeasonCnt": max_cnt,
-        "playerGmLeagueCnt": player_gm_league_cnt,
-        "playerMLeagueCnt": player_m_league_cnt,
-        "playerDmLeagueCnt": player_dm_league_cnt,
-        "otherLeaguesCnt": other_leagues_cnt,
-        "playerZergCnt": player_zerg_cnt,
-        "playerTerranCnt": player_terran_cnt,
-        "playerProtossCnt": player_protoss_cnt,
-        "playerRandomCnt": player_random_cnt,
-        "inSeasonTeams": in_season_teams,
-        "matchesCnt": matches_cnt,
-        "pvzCnt": pvz_cnt,
-        "tvpCnt": tvp_cnt,
-        "tvzCnt": tvz_cnt,
-        "pvzProtossWins": pvz_protoss_wins,
-        "tvpTerranWins": tvp_terran_wins,
-        "tvzTerranWins": tvz_terran_wins,
-        "mirrorsCnt": mirrors_cnt
+        'playerCnt': players_cnt,
+        'maxTeamsInSeasonCnt': max(teams_in_season_cnt, key=lambda x: x['teamCount'])['teamCount'],
+        'inSeasonTeams': list(teams_in_season_cnt),
+        'leagueStats': league_stats,
+        'raceStats': list(race_stats),
+        'matchStats': match_stats,
+        'maps': list(maps_data),
     }
     return Response(response_data)
 
@@ -2166,3 +2203,16 @@ def get_all_users(request):
             "isStaff": user.is_staff
         })
     return Response(users_data)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_maps_by_season(request):
+    currnet_season = Season.objects.get(is_finished=False)
+    current_season_maps = Map.objects.filter(seasons=currnet_season)
+    other_season_maps = Map.objects.exclude(seasons=currnet_season)
+
+    return Response({
+        "currentSeasonMaps": current_season_maps.values(),
+        "otherSeasonMaps": other_season_maps.values()
+    })
