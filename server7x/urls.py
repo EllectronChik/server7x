@@ -23,6 +23,7 @@ router.register(r'player_to_tournament',
                 views.PlayerToTournamentViewSet, basename='player_to_tournament')
 router.register(r'groupStages', views.GroupStageViewSet,
                 basename='groupStages')
+router.register(r'maps', views.MapsViewSet)
 
 
 urlpatterns = [
@@ -95,6 +96,7 @@ urlpatterns = [
          views.post_team_resource, name="post_team_resource"),
     path('api/v1/postManagerContact/',
          views.post_manager_contact, name="post_manager_contact"),
+         path('api/v1/getMapsBySeason/', views.get_maps_by_season),
     path('api/v1/is_auth/', views.is_authenticated),
     path('api/v1/status/', views.is_manager_or_staff),
     path('api/v1/auth/', include('djoser.urls')),

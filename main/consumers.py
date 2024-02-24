@@ -19,8 +19,8 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError, FieldDoesNotExist
 
 # Importing models, serializers, and utilities
-from main.models import Tournament, Match, Player, Manager, Season, Team, GroupStage
-from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament
+from main.models import Tournament, Match, Player, Manager, Season, Map, Team, GroupStage
+from main.serializers import MatchesSerializer, TeamsSerializer, PlayerToTournament, MapSerializer
 from main.utils import get_season_data
 
 # Load environment variables
@@ -341,6 +341,10 @@ class MatchConsumer(AsyncConsumer):
 
             # Update the match object with the new player_two
             obj.player_two = player
+        elif column == 'map':
+            # Update the match object with the new map
+            map = await sync_to_async(Map.objects.get)(pk=data)
+            obj.map = map
         else:
             # For any other column, simply update the match object attribute
             setattr(obj, column, data)
@@ -865,12 +869,23 @@ class TournamentStatusConsumer(AsyncConsumer):
                     'tournamentInGroup': True if tournament.group is not None else False,
                 })
 
+        maps = Map.objects.filter(seasons=season)
+        maps_data = []
+        for map in maps:
+            maps_data.append({
+                'id': map.id,
+                'name': map.name
+            })
+
         # Send tournament data to clients
         async_to_sync(channel_layer.group_send)(
             f"manager_{self.group_name}",
             {
                 "type": "send_tournaments",
-                "text": [response_data]
+                "text": {
+                    'tournaments': response_data,
+                    'maps': maps_data
+                }
             }
         )
 
@@ -1272,7 +1287,7 @@ class AdminConsumer(AsyncConsumer):
         tournaments = Tournament.objects.filter(season=season)
         
         # Initialize an empty list to store response data
-        response_data = []
+        tournaments_data = []
         
         # Iterate over each tournament
         for tournament in tournaments:
@@ -1307,14 +1322,25 @@ class AdminConsumer(AsyncConsumer):
             }
             
             # Append tournament data to the response data list
-            response_data.append(tournament_data)
+            tournaments_data.append(tournament_data)
         
+        maps = Map.objects.filter(seasons=season)
+        maps_data = []
+        for map in maps:
+            maps_data.append({
+                'id': map.id,
+                'name': map.name
+            })
         # Send the updated tournament data to the corresponding group of clients
         async_to_sync(channel_layer.group_send)(
             f"admin_{self.group_name}",
             {
                 "type": "send_tournaments",
-                "text": response_data
+                "text": {
+                    'tournaments': tournaments_data,
+                    'maps': maps_data
+
+                }
             }
         )
 

@@ -18,7 +18,7 @@ class Match(models.Model):
     winner = models.ForeignKey(
         'Player', on_delete=models.PROTECT, null=True, blank=True, default=None)
     tournament = models.ForeignKey('Tournament', on_delete=models.PROTECT)
-    map = models.CharField(max_length=100, null=True, blank=True, default=None)
+    map = models.ForeignKey('Map', on_delete=models.PROTECT, null=True, blank=True, default=None)
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
 
     def get_teams(self):
@@ -254,3 +254,13 @@ class LeagueFrame(models.Model):
     def __str__(self):
         # Returns a string representation of the league frame
         return f"{self.league} max frame: {self.frame_max}"
+
+
+# Model for a map
+class Map(models.Model):
+    name = models.CharField(max_length=100)
+    seasons = models.ManyToManyField('Season')
+
+    def __str__(self):
+        # Returns a string representation of the map
+        return self.name

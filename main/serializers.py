@@ -235,6 +235,47 @@ class CustomTokenSerializer(TokenSerializer):
         fields = ('user_id', 'auth_token')
 
 
+# Serializer for Map model
+class MapSerializer(serializers.ModelSerializer):
+    seasons = serializers.SerializerMethodField()
+    seasons_numbers = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Map
+        fields = ('id', 'name', 'seasons', 'seasons_numbers')
+
+    def get_seasons(self, obj):
+        return [season.number for season in obj.seasons.all()]
+    
+    def create(self, validated_data):
+        seasons_numbers = validated_data.pop('seasons_numbers')
+        try: 
+            seasons_numbers = seasons_numbers.split(',')
+        except:
+            raise serializers.ValidationError('Invalid seasons numbers')
+        map = Map.objects.create(**validated_data)
+        for season_number in seasons_numbers:
+            season = Season.objects.get(number=season_number)
+            map.seasons.add(season)
+        return map
+    
+    def update(self, instance, validated_data):
+        if validated_data.get('seasons_numbers'):
+            seasons_numbers = validated_data.pop('seasons_numbers')
+            try: 
+                seasons_numbers = seasons_numbers.split(',')
+            except:
+                raise serializers.ValidationError('Invalid seasons numbers')
+            for season_number in seasons_numbers:
+                try:
+                    season = Season.objects.get(number=season_number)
+                except Season.DoesNotExist:
+                    raise serializers.ValidationError(
+                        "Season not found", code=status.HTTP_404_NOT_FOUND)
+                instance.seasons.add(season)
+        return super().update(instance, validated_data)
+
+
 # Serializer for TournamentRegistration model
 class TournamentRegistrationSerializer(serializers.ModelSerializer):
     season = serializers.IntegerField(write_only=True)

@@ -19,6 +19,7 @@ admin.site.register(Tournament)
 admin.site.register(TournamentRegistration)
 admin.site.register(PlayerToTournament)
 admin.site.register(GroupStage)
+admin.site.register(Map)
 
 # Defining admin class for the LeagueFrame model to customize its display in the admin panel.
 class LeagueFrameAdmin(admin.ModelAdmin):
