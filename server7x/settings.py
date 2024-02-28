@@ -33,9 +33,6 @@ DEBUG = True if env('DEBUG_VALUE') == 'True' else False
 
 ALLOWED_HOSTS = env('ALLOWED_HOSTS').split(',')
 
-# CORS_ALLOW_ALL_ORIGINS = True
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -64,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'corsheaders.middleware.CorsMiddleware',
 ]
 
@@ -147,15 +145,14 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = 'static/'
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATIC_URL = '/django_static/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'django_static')
 
 
 REST_FRAMEWORK = {
