@@ -1805,7 +1805,7 @@ def get_player_by_id(request, player_id):
         opponent_tag = opponent.team.tag
         matches_data.append({
             "id": match.id,
-            "map": match.map,
+            "map": match.map.name if match.map is not None else None,
             "opponent": opponent_name,
             "opponentTag": opponent_tag,
             "opponentId": opponent_id,
@@ -1855,7 +1855,7 @@ def get_tournament_by_id(request, tournament_id):
             winner = None
         matches_data.append({
             "id": match.id,
-            "map": match.map,
+            "map": match.map.name if match.map is not None else None,
             "playerOneId": match.player_one.id,
             "playerTwoId": match.player_two.id,
             "playerOne": match.player_one.username,
