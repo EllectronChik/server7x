@@ -109,4 +109,4 @@ if settings.DEBUG:
     urlpatterns.append(path('admin/', admin.site.urls)),
     urlpatterns.append(path('silk/', include('silk.urls', namespace='silk'))),
     urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT)
+                          document_root=settings.STATIC_ROOT)

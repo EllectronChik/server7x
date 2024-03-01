@@ -152,7 +152,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 STATIC_URL = '/django_static/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'django_static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'django_static')
 
 
 REST_FRAMEWORK = {
