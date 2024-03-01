@@ -3,6 +3,7 @@
 config.ini
 __pycache__
 /media
+/django_static
 migrations
 .env
 .ini
