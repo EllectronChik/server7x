@@ -1901,7 +1901,7 @@ def get_statistics(request):
         .values('race')
         .annotate(playerCount=Count('id'))
     )
-    
+
     match_stats = {
         'totalMatches': Match.objects.count(),
         'mirrors': Match.objects.filter(player_one__race=F('player_two__race')).count(),
@@ -1934,7 +1934,7 @@ def get_statistics(request):
 
     response_data = {
         'playerCnt': players_cnt,
-        'maxTeamsInSeasonCnt': max(teams_in_season_cnt, key=lambda x: x['teamCount'])['teamCount'],
+        'maxTeamsInSeasonCnt': max(teams_in_season_cnt, key=lambda x: x['teamCount'])['teamCount'] if teams_in_season_cnt else 0,
         'inSeasonTeams': list(teams_in_season_cnt),
         'leagueStats': league_stats,
         'raceStats': list(race_stats),
