@@ -258,7 +258,7 @@ class LeagueFrame(models.Model):
 
 # Model for a map
 class Map(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, null=True, blank=True)
     seasons = models.ManyToManyField('Season')
 
     def __str__(self):
