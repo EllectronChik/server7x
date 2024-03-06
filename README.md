@@ -10,7 +10,7 @@
   <h3 align="center">7x Team League Server</h3>
 
   <p align="center">
-    Server side of the project dedicated to holding team leagues on StartCraft 2 game
+    Server side of the project dedicated to holding team leagues in StartCraft 2 game
     <br />
     <a href="https://github.com/EllectronChik/client7x/issues">Report Bug</a>
     ·
@@ -102,7 +102,7 @@ _Before running the server, make sure you have all the required dependencies ins
     pip install -r requirements.txt
     ```
 
-5. Create a .env file with the following content
+5. Create a file named ".env" with the following content
     ```bash
       SECRET_KEY={{SECRET_KEY}}
 
@@ -122,7 +122,7 @@ _Before running the server, make sure you have all the required dependencies ins
       ALLOWED_HOSTS={{ALLOWED_HOSTS}}
     ```
 
-6. Create a .ini file with the following content
+6. Create a file named ".ini" with the following content
     ```bash
       [BLIZZARD]
       blizzard_api_id = {{BLIZZARD_API_ID}}
